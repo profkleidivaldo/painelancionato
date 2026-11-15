@@ -2,13 +2,19 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Painel do Ancião">
+<meta name="theme-color" content="#1b3a5c">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <title>Painel do Ancião</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Montserrat:wght@600;700;800&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js" defer></script>
 <style>
 /* Layout: faixa azul no topo, calendário mensal à esquerda (quartas em azul, sábados em dourado), painel lateral com três cartões à direita. */
 :root{
@@ -195,6 +201,22 @@ dialog::backdrop{background:rgba(8,18,30,.55)}
 .row2 .top b{flex:1;min-width:0;overflow-wrap:anywhere}
 .toast{position:fixed;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);max-width:calc(100% - 32px);padding:10px 16px;background:var(--fg);color:var(--bg);border-radius:9px;font-size:14px;z-index:50}
 
+/* ---------- Recursos adicionais ---------- */
+body.leitor .so-editor{display:none!important}
+body.leitor dialog form:not(.keep){display:none}
+.sino{position:relative;display:inline-grid;place-items:center;width:34px;height:34px;border-radius:8px;border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.12);color:#fff;cursor:pointer}
+.sino .n{position:absolute;top:-7px;right:-7px;min-width:18px;height:18px;padding:0 4px;border-radius:99px;background:var(--sun);color:#fff;font:700 11px var(--font-body);display:grid;place-items:center}
+.tools2{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.tools2 .btn{justify-content:flex-start;text-align:left}
+.semana{padding:10px 12px;border-radius:10px;background:color-mix(in srgb,var(--sun) 10%,var(--surface));font-size:13.5px}
+.al{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface2);font-size:14px}
+.al i{width:10px;height:10px;border-radius:50%;margin-top:6px;flex:none;background:var(--blue)}
+.al.warn i{background:var(--gold)}
+.al.bad i{background:var(--sun)}
+.al span{min-width:0;overflow-wrap:anywhere}
+.ranks{display:flex;flex-wrap:wrap;gap:6px}
+.votos{margin:0;padding-left:22px;display:grid;gap:8px;font-size:14px}
+.sec-t{margin:6px 0 0;font:700 14px var(--font-head);color:var(--title)}
 /* ---------- Telas estreitas ---------- */
 @media (max-width:1020px){.shell{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:700px){
@@ -240,6 +262,7 @@ dialog::backdrop{background:rgba(8,18,30,.55)}
   <header class="band"><div class="band-in">
     <h1 id="titulo"></h1>
     <div class="who">
+      <button class="sino" id="b-sino" type="button" aria-label="Alertas" title="Alertas"></button>
       <button class="sync" id="sync" type="button" title="Atualizar agora"></button>
       <span class="nome" id="usuario"></span>
       <button class="btn" id="b-senha" type="button">Senha</button>
@@ -263,7 +286,7 @@ dialog::backdrop{background:rgba(8,18,30,.55)}
           <button id="v-lista" type="button" aria-pressed="false">Lista</button>
         </div>
         <input class="busca" type="search" id="busca" placeholder="Buscar no registro (nome, assunto, anotação)" aria-label="Buscar no registro">
-        <button class="btn primary" id="b-novo" type="button"></button>
+        <button class="btn primary so-editor" id="b-novo" type="button"></button>
       </div>
       <div class="legend" id="legenda"></div>
       <div class="fbar" id="fbar" hidden></div>
@@ -322,6 +345,47 @@ const META_PADRAO = {membros:8,idosos:6,familias:5,convertidos:3};
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DIAS_L = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
 const DIAS_C = ['dom','seg','ter','qua','qui','sex','sáb'];
+const ROT_ST = {a_confirmar:'A confirmar',confirmado:'Confirmado',planejado:'Planejado',feito:'Realizado'};
+const IND_PADRAO = {estudosMeta:0,estudosAlc:0,gruposMeta:0,gruposAlc:0,batismosMeta:0,batismosAlc:0};
+/* Roteiros de culto: modelo inicial. Cada igreja ajusta pelo botão Editar roteiro. */
+const LIT_PADRAO = {
+  sabado:[
+    {h:'8:00',d:'Classe dos professores'},{h:'8:45',d:'Momentos de louvor'},
+    {h:'9:00',d:'Boas-vindas, hino inicial, oração, missões, mensagem musical'},
+    {h:'9:15',d:'Estudo nas unidades de ação'},{h:'10:00',d:'Vídeo de anúncios'},
+    {h:'10:05',d:'Louvores: hino inicial (pregador) e hino de invocação'},
+    {h:'10:15',d:'Oração intercessora (de joelhos)'},
+    {h:'10:20',d:'Provai e vede, ofertas e oração'},
+    {h:'10:28',d:'Adoração infantil'},{h:'10:33',d:'Mensagem musical'},
+    {h:'10:38',d:'Pregação'},{h:'11:23',d:'Hino final'},{h:'11:28',d:'Oração final'},{h:'11:30',d:'Despedida'}
+  ],
+  domingo:[
+    {h:'19:45',d:'Louvores'},{h:'20:00',d:'Ancião da semana: abertura e hino inicial'},
+    {h:'20:05',d:'Oração de joelhos'},{h:'20:07',d:'Vídeo de saúde'},{h:'20:10',d:'Vídeo Primeiro Deus'},
+    {h:'20:13',d:'Ofertas e oração'},{h:'20:15',d:'Anúncios e apresentação do pregador'},
+    {h:'20:16',d:'Mensagem musical'},{h:'20:20',d:'Sermão'},{h:'20:55',d:'Hino final'},{h:'21:00',d:'Oração final'}
+  ],
+  quarta:[
+    {h:'19:45',d:'Louvores'},{h:'20:00',d:'Ancião da semana: abertura e hino inicial'},
+    {h:'20:05',d:'Oração de joelhos'},{h:'20:07',d:'Pedidos, agradecimentos e testemunhos'},
+    {h:'20:27',d:'Mensagem musical'},{h:'20:30',d:'Sermão'},{h:'20:55',d:'Hino final'},{h:'21:00',d:'Oração final'}
+  ]
+};
+const VOTOS = [
+  'Crê que há um só Deus: Pai, Filho e Espírito Santo, uma unidade de três pessoas coeternas?',
+  'Aceita a morte de Jesus Cristo no Calvário como o sacrifício expiatório por seus pecados?',
+  'Aceita Jesus Cristo como seu Senhor e Salvador pessoal?',
+  'Aceita pela fé a justiça de Cristo, seu intercessor no santuário celestial?',
+  'Crê que a Bíblia é a inspirada Palavra de Deus, a única regra de fé e prática?',
+  'Aceita os Dez Mandamentos, inclusive o sábado do sétimo dia como memorial da Criação?',
+  'Aguarda a breve volta de Jesus e testemunhará de Sua amorável salvação?',
+  'Aceita o ensino bíblico dos dons espirituais, inclusive o dom de profecia?',
+  'Crê na organização da Igreja e a sustentará com dízimos, ofertas e esforço pessoal?',
+  'Crê que seu corpo é o templo do Espírito Santo e evitará substâncias prejudiciais?',
+  'Conhece os princípios fundamentais da Igreja Adventista e propõe-se a viver em harmonia com eles?',
+  'Aceita o batismo por imersão como expressão pública de fé em Cristo?',
+  'Aceita que a Igreja Adventista do Sétimo Dia é a igreja remanescente da profecia bíblica?'
+];
 
 /* ---------- Ícones ---------- */
 const ICONES = {
@@ -342,6 +406,9 @@ const ICONES = {
   right:'<path d="m9 5 7 7-7 7"/>',
   lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
   clip:'<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/>',
+  bell:'<path d="M6 17v-6a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21h4"/>',
+  file:'<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/>',
+  repeat:'<path d="M4 11a6 6 0 0 1 10-4l2 2M20 13a6 6 0 0 1-10 4l-2-2M16 4v5h-5M8 20v-5h5"/>',
   cog:'<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/>',
   copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/>'
 };
@@ -394,7 +461,8 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTi
 
 /* ---------- Estado ---------- */
 const S = {
-  token:'',usuario:'',eventos:[],tarefas:[],pauta:[],metas:Object.assign({},META_PADRAO),
+  token:'',usuario:'',perfil:'editor',eventos:[],tarefas:[],pauta:[],metas:Object.assign({},META_PADRAO),
+  rodizio:{anciaos:[],inicio:''},liturgias:null,indicadores:Object.assign({},IND_PADRAO),
   mes:new Date(new Date().getFullYear(),new Date().getMonth(),1,12),
   ocultos:new Set(),depto:'',busca:'',vista:'cal',poll:null
 };
@@ -456,8 +524,8 @@ function demoDB(){try{const r=localStorage.getItem('painel_demo');if(r)return JS
 function demoSave(d){try{localStorage.setItem('painel_demo',JSON.stringify(d));}catch(_){}}
 async function demoApi(action,dados){
   const d=demoDB();
-  if(action==='login'){if(!dados.nome||!dados.senha)throw new Error('Informe nome e senha.');return {ok:true,token:'demo',usuario:String(dados.nome).trim()};}
-  if(action==='listar')return {ok:true,eventos:d.eventos,tarefas:d.tarefas,pauta:d.pauta,config:d.config};
+  if(action==='login'){if(!dados.nome||!dados.senha)throw new Error('Informe nome e senha.');return {ok:true,token:'demo',usuario:String(dados.nome).trim(),perfil:'editor'};}
+  if(action==='listar')return {ok:true,eventos:d.eventos,tarefas:d.tarefas,pauta:d.pauta,config:d.config,perfil:'editor'};
   if(action==='salvar'){
     const col=d[dados.entidade];
     (dados.itens||[]).forEach(it=>{const i=col.findIndex(x=>x.id===it.id);const o=Object.assign({},i>=0?col[i]:{},it,{atualizadoPor:S.usuario,atualizadoEm:new Date().toISOString()});if(i>=0)col[i]=o;else col.push(o);});
@@ -477,8 +545,13 @@ function lerSessao(){
   return null;
 }
 function guardarSessao(manter){
-  const dados=JSON.stringify({token:S.token,usuario:S.usuario});
+  const dados=JSON.stringify({token:S.token,usuario:S.usuario,perfil:S.perfil});
   try{localStorage.removeItem('painel_sessao');sessionStorage.removeItem('painel_sessao');(manter?localStorage:sessionStorage).setItem('painel_sessao',dados);}catch(_){}
+}
+function pode(){return S.perfil!=='leitor';}
+function aplicaPerfil(){
+  document.body.classList.toggle('leitor',!pode());
+  $('#usuario').textContent=S.usuario+(pode()?'':' (leitor)');
 }
 function limparSessao(){try{localStorage.removeItem('painel_sessao');sessionStorage.removeItem('painel_sessao');}catch(_){}}
 function mostrarLogin(msg){
@@ -488,13 +561,13 @@ function mostrarLogin(msg){
   setTimeout(()=>$('#lg-nome').focus(),0);
 }
 function sair(msg){
-  clearInterval(S.poll);S.token='';S.usuario='';limparSessao();
+  clearInterval(S.poll);S.token='';S.usuario='';S.perfil='editor';document.body.classList.remove('leitor');limparSessao();
   S.eventos=[];S.tarefas=[];S.pauta=[];fechar();
   mostrarLogin(msg);
 }
 function entrar(){
   $('#login').hidden=true;$('#app').hidden=false;
-  $('#usuario').textContent=S.usuario;
+  aplicaPerfil();
   carregar(false);
   clearInterval(S.poll);
   S.poll=setInterval(()=>{if(!document.hidden&&S.token)carregar(true);},60000);
@@ -508,6 +581,10 @@ function norm(r){
   S.pauta=(r.pauta||[]).slice();
   const c=r.config||{};
   S.metas=Object.assign({},META_PADRAO,c.metasVisitas||{});
+  S.rodizio=Object.assign({anciaos:[],inicio:''},c.rodizio||{});
+  S.liturgias=c.liturgias||null;
+  S.indicadores=Object.assign({},IND_PADRAO,c.indicadores||{});
+  if(r.perfil&&r.perfil!==S.perfil){S.perfil=r.perfil;aplicaPerfil();}
 }
 async function carregar(silencioso){
   try{
@@ -518,6 +595,7 @@ async function carregar(silencioso){
   }catch(e){setSync('Falha ao sincronizar. Toque para tentar de novo.');if(!silencioso)toast(e.message);}
 }
 async function salvar(col,itens){
+  if(!pode()){toast('Seu acesso é somente de leitura.');render();return false;}
   const antes=S[col].slice();
   itens.forEach(it=>{
     const i=S[col].findIndex(x=>x.id===it.id);
@@ -534,6 +612,7 @@ async function salvar(col,itens){
   }catch(e){S[col]=antes;render();toast('Não foi possível salvar: '+e.message);return false;}
 }
 async function excluir(col,id){
+  if(!pode()){toast('Seu acesso é somente de leitura.');return false;}
   const antes=S[col].slice();
   S[col]=S[col].filter(x=>x.id!==id);render();
   try{await api('excluir',{entidade:col,id:id});return true;}
@@ -562,6 +641,7 @@ function render(){
   renderLegenda();renderFiltro();
   if(S.vista==='cal')renderCalendario();else renderLista();
   renderLateral();
+  updateSino();
 }
 function renderLegenda(){
   const box=$('#legenda');box.replaceChildren();
@@ -674,10 +754,10 @@ function cardVisitacao(){
       h('span',{class:'qt'},feitas+' de '+meta+(plan?' · +'+plan+' marcada'+(plan>1?'s':''):'')),
       h('div',{class:'bar',role:'progressbar','aria-valuemin':'0','aria-valuemax':String(meta),'aria-valuenow':String(feitas),'aria-label':c[1]},h('span',{style:'width:'+pct+'%'})));
   });
-  const acao=h('button',{class:'ibtn',type:'button',title:'Editar metas do mês','aria-label':'Editar metas',onclick:abrirMetas},icone('cog',18));
+  const acao=h('button',{class:'ibtn so-editor',type:'button',title:'Editar metas do mês','aria-label':'Editar metas',onclick:abrirMetas},icone('cog',18));
   return cartao('Visitação Pastoral','home',acao,[
     linhas,
-    h('div',{class:'rodape'},h('button',{class:'btn sm',type:'button',onclick:()=>abrirEvento({tipo:'visita',data:hojeIso(),status:'feito'})},icone('plus',14),'Registrar visita'))
+    h('div',{class:'rodape'},h('button',{class:'btn sm so-editor',type:'button',onclick:()=>abrirEvento({tipo:'visita',data:hojeIso(),status:'feito'})},icone('plus',14),'Registrar visita'))
   ]);
 }
 function cardDeptos(){
@@ -693,7 +773,7 @@ function cardDeptos(){
   abertas.slice(0,6).forEach(t=>{
     const late=t.prazo&&t.prazo<hojeIso();
     lista.append(h('label',{class:'tk'},
-      h('input',{type:'checkbox','aria-label':'Concluir: '+t.titulo,onchange:e=>salvar('tarefas',[Object.assign({},t,{feito:e.target.checked})])}),
+      h('input',{type:'checkbox',disabled:!pode(),'aria-label':'Concluir: '+t.titulo,onchange:e=>salvar('tarefas',[Object.assign({},t,{feito:e.target.checked})])}),
       t.depto&&h('span',{class:'dp',style:'--c:'+corDepto(t.depto),title:t.depto}),
       h('span',{class:'t'},t.titulo,(t.resp||t.prazo)&&h('small',{class:late?'late':''},[t.resp,t.prazo&&('até '+fmtBR(t.prazo))].filter(Boolean).join(' · ')))));
   });
@@ -702,7 +782,7 @@ function cardDeptos(){
     badges,
     h('div',null,h('p',{class:'sub',style:'margin-bottom:8px'},'Tarefas em aberto ('+total+')'),lista),
     h('div',{class:'rodape'},
-      h('button',{class:'btn sm',type:'button',onclick:()=>abrirTarefas('tarefas')},icone('plus',14),'Nova tarefa'),
+      h('button',{class:'btn sm so-editor',type:'button',onclick:()=>abrirTarefas('tarefas')},icone('plus',14),'Nova tarefa'),
       h('button',{class:'btn sm',type:'button',onclick:()=>abrirTarefas('tarefas')},'Ver todas'))
   ]);
 }
@@ -722,6 +802,8 @@ function cardPulpito(){
     bloco('Cerimônias especiais',cer.map(e=>ln(e.data,e.titulo||tipoDe(e).nome)),'Sem Santa Ceia ou batismo neste mês.'),
     bloco('Coordenação dos cultos',dir.map(e=>ln(e.data,e.dirigente)),'Nenhum dirigente definido.')
   ];
+  const aw=anciaoDaSemana(hoje);
+  if(aw)partes.unshift(h('div',{class:'semana'},h('b',null,'Ancião da semana: '),aw));
   if(sem.length){
     const btns=h('div',{class:'btns'});
     sem.forEach(s=>btns.append(h('button',{class:'btn sm',type:'button',onclick:()=>abrirEvento({tipo:'pregacao',data:s,status:'a_confirmar',titulo:'Culto de sábado'})},fmtDM(s))));
@@ -738,12 +820,12 @@ function cardPauta(){
   return cartao('Pauta da Comissão','gavel',null,[
     lista,
     h('div',{class:'rodape'},
-      h('button',{class:'btn sm',type:'button',onclick:()=>abrirTarefas('pauta')},icone('plus',14),'Novo assunto'),
+      h('button',{class:'btn sm so-editor',type:'button',onclick:()=>abrirTarefas('pauta')},icone('plus',14),'Novo assunto'),
       h('button',{class:'btn sm',type:'button',onclick:()=>abrirTarefas('pauta')},'Ver pauta ('+S.pauta.length+')'))
   ]);
 }
 function renderLateral(){
-  const s=$('#side');s.replaceChildren(cardVisitacao(),cardDeptos(),cardPulpito(),cardPauta());
+  const s=$('#side');s.replaceChildren(cardVisitacao(),cardIndicadores(),cardDeptos(),cardPulpito(),cardFerramentas(),cardPauta());
 }
 
 /* ---------- Janela ---------- */
@@ -763,7 +845,7 @@ function detalhesEvento(ev){
   const linhas=[
     ['Quando',dataLonga(ev.data)+(ev.hora?' às '+ev.hora:'')],
     [t.pessoa,ev.pessoa],['Dirigente do culto',ev.dirigente],['Categoria',cat],['Departamento',ev.depto],
-    ['Situação',rotSt],['Anotações',ev.detalhe],['Registrado por',ev.criadoPor]
+    ['Situação',rotSt],['Ancião da semana',anciaoDaSemana(ev.data)],['Anotações',ev.detalhe],['Registrado por',ev.criadoPor]
   ].filter(l=>l[1]);
   const dl=h('dl');
   linhas.forEach(l=>dl.append(h('dt',null,l[0]),h('dd',null,l[1])));
@@ -774,7 +856,7 @@ function detalhesEvento(ev){
 function abrirVer(ev){
   abrir(tipoDe(ev).nome,h('div',{class:'ver'},detalhesEvento(ev),
     h('div',{class:'acoes'},
-      h('button',{class:'btn primary',type:'button',onclick:()=>abrirEvento(ev)},'Editar'),
+      h('button',{class:'btn primary so-editor',type:'button',onclick:()=>abrirEvento(ev)},'Editar'),
       h('button',{class:'btn',type:'button',onclick:fechar},'Fechar'))));
 }
 function abrirDia(iso){
@@ -782,14 +864,15 @@ function abrirDia(iso){
   const corpo=h('div',{class:'form'});
   if(!lista.length)corpo.append(h('p',{class:'vazio'},'Nada marcado para este dia.'));
   lista.forEach(ev=>corpo.append(h('div',{class:'ver-card'},detalhesEvento(ev),
-    h('div',{class:'acoes'},h('button',{class:'btn sm',type:'button',onclick:()=>abrirEvento(ev)},'Editar este evento')))));
+    h('div',{class:'acoes'},h('button',{class:'btn sm so-editor',type:'button',onclick:()=>abrirEvento(ev)},'Editar este evento')))));
   const d=parse(iso).getDay();
   const sug=d===6?'pregacao':d===3?'pg':'visita';
-  corpo.append(h('button',{class:'btn primary',type:'button',onclick:()=>abrirEvento({data:iso,tipo:sug})},icone('plus',16),'Adicionar evento'));
+  corpo.append(h('button',{class:'btn primary so-editor',type:'button',onclick:()=>abrirEvento({data:iso,tipo:sug})},icone('plus',16),'Adicionar evento'));
   abrir(dataLonga(iso),corpo);
 }
 
 function abrirEvento(base){
+  if(!pode()){toast('Seu acesso é somente de leitura.');return;}
   const edit=!!base.id;
   const ev=Object.assign({tipo:'pregacao',data:hojeIso(),hora:'',titulo:'',pessoa:'',dirigente:'',detalhe:'',depto:'',categoria:'',status:''},base);
   const selTipo=h('select',{id:'e-tipo',value:ev.tipo},Object.keys(TIPOS).map(k=>h('option',{value:k},TIPOS[k].nome)));
@@ -861,6 +944,7 @@ function abrirEvento(base){
 }
 
 function abrirMetas(){
+  if(!pode()){toast('Seu acesso é somente de leitura.');return;}
   const campos={};
   const form=h('form',{class:'form'},h('p',{class:'muted'},'Quantas visitas realizadas por mês cada categoria deve ter.'),
     CATS_VISITA.map(c=>{campos[c[0]]=h('input',{type:'number',id:'m-'+c[0],min:'0',max:'999',value:String(S.metas[c[0]]||0)});return h('div',null,h('label',{for:'m-'+c[0]},c[1]),campos[c[0]]);}),
@@ -885,7 +969,7 @@ function abrirTarefas(aba){
   }
   function delBtn(col,id){
     let armado=false;
-    const b=h('button',{class:'btn sm danger',type:'button'},'Excluir');
+    const b=h('button',{class:'btn sm danger so-editor',type:'button'},'Excluir');
     b.addEventListener('click',async()=>{
       if(!armado){armado=true;b.textContent='Confirmar';setTimeout(()=>{armado=false;b.textContent='Excluir';},4000);return;}
       if(await excluir(col,id))desenha();
@@ -911,7 +995,7 @@ function abrirTarefas(aba){
     todas.forEach(t=>{
       const late=!t.feito&&t.prazo&&t.prazo<hojeIso();
       lista.append(h('div',{class:'row2'},h('div',{class:'top'},
-        h('input',{type:'checkbox',checked:t.feito,'aria-label':'Concluída: '+t.titulo,style:'width:18px;height:18px',onchange:e=>salvar('tarefas',[Object.assign({},t,{feito:e.target.checked})])}),
+        h('input',{type:'checkbox',checked:t.feito,disabled:!pode(),'aria-label':'Concluída: '+t.titulo,style:'width:18px;height:18px',onchange:e=>salvar('tarefas',[Object.assign({},t,{feito:e.target.checked})])}),
         h('b',{style:t.feito?'text-decoration:line-through;color:var(--muted);font-weight:500':''},t.titulo),delBtn('tarefas',t.id)),
         (t.resp||t.prazo||t.depto)&&h('span',{class:'muted'+(late?' late':'')},[t.resp,t.prazo&&('prazo '+fmtBR(t.prazo)),t.depto].filter(Boolean).join(' · '))));
     });
@@ -933,8 +1017,8 @@ function abrirTarefas(aba){
     const lista=h('div',{class:'lst'});
     const ordem={pendente:0,discussao:1,decidido:2};
     S.pauta.slice().sort((a,b)=>(ordem[a.status]||0)-(ordem[b.status]||0)).forEach(p=>{
-      const sel=h('select',{'aria-label':'Situação de '+p.assunto,value:p.status||'pendente',style:'width:auto;min-width:140px',onchange:e=>salvar('pauta',[Object.assign({},p,{status:e.target.value})])},PAUTA_ST.map(s=>h('option',{value:s[0]},s[1])));
-      const dec=h('textarea',{'aria-label':'Decisão sobre '+p.assunto,placeholder:'Decisão ou encaminhamento',value:p.decisao||'',style:'min-height:56px',onchange:e=>salvar('pauta',[Object.assign({},p,{decisao:e.target.value.trim()})])});
+      const sel=h('select',{'aria-label':'Situação de '+p.assunto,disabled:!pode(),value:p.status||'pendente',style:'width:auto;min-width:140px',onchange:e=>salvar('pauta',[Object.assign({},p,{status:e.target.value})])},PAUTA_ST.map(s=>h('option',{value:s[0]},s[1])));
+      const dec=h('textarea',{'aria-label':'Decisão sobre '+p.assunto,disabled:!pode(),placeholder:'Decisão ou encaminhamento',value:p.decisao||'',style:'min-height:56px',onchange:e=>salvar('pauta',[Object.assign({},p,{decisao:e.target.value.trim()})])});
       lista.append(h('div',{class:'row2'},h('div',{class:'top'},h('b',null,p.assunto),delBtn('pauta',p.id)),
         h('span',{class:'muted'},[p.categoria,p.obs].filter(Boolean).join(' · ')),sel,dec));
     });
@@ -948,7 +1032,7 @@ function abrirTarefas(aba){
 function abrirEscalaTexto(){
   const linhas=proximosSabados(8).map(d=>{
     const e=S.eventos.filter(x=>x.data===d&&x.tipo==='pregacao')[0]||S.eventos.filter(x=>x.data===d&&x.tipo==='santa_ceia')[0]||{};
-    return fmtCurto(d)+' - '+(e.pessoa||'a definir')+(e.titulo&&e.titulo!=='Culto de sábado'?' - '+e.titulo:'')+(e.detalhe&&e.tipo==='pregacao'&&e.detalhe!=='Exemplo de demonstração'?' ('+e.detalhe+')':'');
+    return fmtCurto(d)+(anciaoDaSemana(d)?' ['+anciaoDaSemana(d)+']':'')+' - '+(e.pessoa||'a definir')+(e.titulo&&e.titulo!=='Culto de sábado'?' - '+e.titulo:'')+(e.detalhe&&e.tipo==='pregacao'&&e.detalhe!=='Exemplo de demonstração'?' ('+e.detalhe+')':'');
   });
   const txt='*Escala de pregadores*\n'+linhas.join('\n');
   const ta=h('textarea',{id:'esc-txt',readonly:true,style:'min-height:210px;font-family:ui-monospace,Menlo,monospace;font-size:13px',value:txt});
@@ -967,7 +1051,7 @@ function abrirSenha(){
   const n=h('input',{type:'password',id:'s-nova',autocomplete:'new-password',minlength:'8',required:true});
   const c=h('input',{type:'password',id:'s-conf',autocomplete:'new-password',minlength:'8',required:true});
   const erro=h('p',{class:'erro',role:'alert',hidden:true});
-  const f=h('form',{class:'form'},
+  const f=h('form',{class:'form keep'},
     h('div',null,h('label',{for:'s-atual'},'Senha atual'),a),
     h('div',null,h('label',{for:'s-nova'},'Nova senha (mínimo 8 caracteres)'),n),
     h('div',null,h('label',{for:'s-conf'},'Repita a nova senha'),c),erro,
@@ -984,6 +1068,275 @@ function abrirSenha(){
   abrir('Trocar minha senha',f);
 }
 
+/* =====================================================================
+   RECURSOS ADICIONAIS
+   ===================================================================== */
+const nrm = s => String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+const casa = (campo,nome) => {const a=nrm(campo),b=nrm(nome);return !!a&&!!b&&(a.indexOf(b)>=0||b.indexOf(a)>=0);};
+function somaDias(iso,n){const d=parse(iso);d.setDate(d.getDate()+n);return isoOf(d);}
+/* A semana do rodízio vai de sábado a sexta. */
+function inicioSemana(iso){const d=parse(iso);d.setDate(d.getDate()-((d.getDay()+1)%7));return isoOf(d);}
+function anciaoDaSemana(iso){
+  const r=S.rodizio;
+  if(!r||!r.anciaos||!r.anciaos.length||!r.inicio||!iso)return '';
+  const sem=Math.round((parse(inicioSemana(iso))-parse(inicioSemana(r.inicio)))/(7*864e5));
+  const n=r.anciaos.length;
+  return r.anciaos[((sem%n)+n)%n];
+}
+async function salvarCfg(chave,valor){
+  if(!pode()){toast('Seu acesso é somente de leitura.');return false;}
+  try{await api('config',{chave:chave,valor:valor});return true;}
+  catch(e){toast('Não foi possível salvar: '+e.message);return false;}
+}
+function copiarTexto(txt,ta){
+  const sel=()=>{if(ta){ta.hidden=false;ta.focus();ta.select();}toast('Selecione o texto e copie.');};
+  if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('Copiado'),sel);else sel();
+}
+
+/* ---------- Cartões do painel lateral ---------- */
+function cardIndicadores(){
+  const I=S.indicadores;
+  const linha=(nm,alc,meta)=>{
+    const pct=meta?Math.min(100,Math.round(alc/meta*100)):(alc?100:0),cheio=meta>0&&alc>=meta;
+    return h('div',{class:'vis'+(cheio?' cheio':'')},
+      h('span',{class:'ck'+(cheio?' on':'')},cheio&&icone('check',13)),
+      h('span',{class:'nm'},nm),h('span',{class:'qt'},alc+' de '+meta),
+      h('div',{class:'bar',role:'progressbar','aria-valuemin':'0','aria-valuemax':String(meta),'aria-valuenow':String(alc),'aria-label':nm},h('span',{style:'width:'+pct+'%'})));
+  };
+  const acao=h('button',{class:'ibtn so-editor',type:'button',title:'Editar indicadores','aria-label':'Editar indicadores',onclick:abrirIndicadores},icone('cog',18));
+  return cartao('Indicadores da Igreja','star',acao,[
+    linha('Estudos bíblicos ativos',I.estudosAlc,I.estudosMeta),
+    linha('Pequenos grupos ativos',I.gruposAlc,I.gruposMeta),
+    linha('Batismos no ano',I.batismosAlc,I.batismosMeta)]);
+}
+function cardFerramentas(){
+  const b=(ico,txt,fn)=>h('button',{class:'btn sm',type:'button',onclick:fn},icone(ico,15),txt);
+  return cartao('Ferramentas do Ancionato','clip',null,h('div',{class:'tools2'},
+    b('repeat','Rodízio de anciãos',()=>abrirRodizio()),
+    b('users','Agenda por ancião',()=>abrirAgendaAnc()),
+    b('book','Liturgias',()=>abrirLiturgias()),
+    b('check','Votos batismais',()=>abrirVotos()),
+    b('mic','Histórico de pregadores',()=>abrirHistorico()),
+    b('file','PDF do mês',()=>pdfMes())));
+}
+
+/* ---------- Indicadores ---------- */
+function abrirIndicadores(){
+  if(!pode()){toast('Seu acesso é somente de leitura.');return;}
+  const I=S.indicadores,campos={};
+  const rotulos=[['estudos','Estudos bíblicos ativos'],['grupos','Pequenos grupos ativos'],['batismos','Batismos no ano']];
+  const form=h('form',{class:'form'},h('p',{class:'muted'},'Informe a meta e quanto já foi alcançado.'),
+    rotulos.map(r=>h('div',null,h('p',{class:'sec-t'},r[1]),h('div',{class:'g2'},
+      h('div',null,h('label',{for:'i-'+r[0]+'A'},'Alcançado'),campos[r[0]+'Alc']=h('input',{type:'number',id:'i-'+r[0]+'A',min:'0',max:'99999',value:String(I[r[0]+'Alc']||0)})),
+      h('div',null,h('label',{for:'i-'+r[0]+'M'},'Meta'),campos[r[0]+'Meta']=h('input',{type:'number',id:'i-'+r[0]+'M',min:'0',max:'99999',value:String(I[r[0]+'Meta']||0)}))))),
+    h('div',{class:'acoes'},h('button',{class:'btn primary',type:'submit'},'Salvar'),h('button',{class:'btn',type:'button',onclick:fechar},'Cancelar')));
+  form.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const v={};Object.keys(IND_PADRAO).forEach(k=>{v[k]=Math.max(0,Math.min(99999,Math.round(Number(campos[k].value)||0)));});
+    if(await salvarCfg('indicadores',v)){S.indicadores=Object.assign({},IND_PADRAO,v);render();fechar();toast('Indicadores salvos');}
+  });
+  abrir('Indicadores da igreja',form);
+}
+
+/* ---------- Rodízio de anciãos ---------- */
+function abrirRodizio(){
+  const r=S.rodizio;
+  const prev=h('div',{class:'lst'});
+  if(r.anciaos.length&&r.inicio){
+    const ini=inicioSemana(hojeIso());
+    for(let i=0;i<8;i++){const a=somaDias(ini,i*7);
+      prev.append(h('div',{class:'ln'},h('b',null,fmtDM(a)+' a '+fmtDM(somaDias(a,6))),h('span',null,anciaoDaSemana(a)+(i===0?' (esta semana)':''))));}
+  }else prev.append(h('p',{class:'muted'},'O rodízio ainda não foi configurado.'));
+  const lista=h('textarea',{id:'r-lista',rows:'5',placeholder:'Um nome por linha, na ordem do rodízio',value:r.anciaos.join('\n')});
+  const ini=h('input',{type:'date',id:'r-inicio',value:r.inicio||''});
+  const f=h('form',{class:'form'},
+    h('div',null,h('label',{for:'r-lista'},'Anciãos, na ordem do rodízio'),lista),
+    h('div',null,h('label',{for:'r-inicio'},'Um dia da semana em que o primeiro da lista é o responsável'),ini),
+    h('p',{class:'muted'},'Cada semana vai de sábado a sexta. Depois do último da lista, o rodízio volta ao primeiro.'),
+    h('div',{class:'acoes'},h('button',{class:'btn primary',type:'submit'},'Salvar rodízio'),h('button',{class:'btn',type:'button',onclick:fechar},'Fechar')));
+  f.addEventListener('submit',async e=>{
+    e.preventDefault();
+    const nomes=lista.value.split('\n').map(s=>s.trim()).filter(Boolean).slice(0,30);
+    if(!nomes.length){toast('Escreva pelo menos um nome.');return;}
+    if(!ini.value){toast('Escolha a data de início.');return;}
+    const v={anciaos:nomes,inicio:ini.value};
+    if(await salvarCfg('rodizio',v)){S.rodizio=v;render();fechar();toast('Rodízio salvo');}
+  });
+  abrir('Rodízio de anciãos',h('div',{class:'form'},h('p',{class:'sec-t'},'Próximas semanas'),prev,f));
+}
+
+/* ---------- Agenda por ancião ---------- */
+function abrirAgendaAnc(){
+  const nomes=[];
+  const add=n=>{n=String(n||'').trim();if(n&&!nomes.some(x=>nrm(x)===nrm(n)))nomes.push(n);};
+  S.rodizio.anciaos.forEach(add);
+  if(!nomes.length)S.eventos.forEach(e=>add(e.dirigente));
+  if(!nomes.length){abrir('Agenda por ancião',h('p',{class:'vazio'},'Configure o rodízio ou informe dirigentes nos cultos para ver a agenda de cada ancião.'));return;}
+  const proprio=nomes.find(n=>nrm(n)===nrm(S.usuario))||nomes[0];
+  const sel=h('select',{id:'ag-sel','aria-label':'Ancião',value:proprio},nomes.map(n=>h('option',{value:n},n)));
+  const area=h('div',{class:'form'});
+  function desenha(){
+    area.replaceChildren();
+    const nome=sel.value,hoje=hojeIso();
+    const semanas=[],ini=inicioSemana(hoje);
+    for(let i=0;i<26&&semanas.length<6;i++){const a=somaDias(ini,i*7);if(casa(anciaoDaSemana(a),nome))semanas.push(a);}
+    const papel=e=>[casa(e.dirigente,nome)&&'Dirigente',casa(e.pessoa,nome)&&tipoDe(e).pessoa].filter(Boolean).join(' e ');
+    const linha=e=>h('div',{class:'ln'},h('b',null,fmtCurto(e.data)),h('span',null,(e.titulo||tipoDe(e).nome)+' ('+papel(e)+')'));
+    const meus=S.eventos.filter(e=>casa(e.pessoa,nome)||casa(e.dirigente,nome)).sort(ordemEv);
+    const prox=meus.filter(e=>e.data>=hoje).slice(0,12),pass=meus.filter(e=>e.data<hoje).slice(-5).reverse();
+    const visitas=S.eventos.filter(e=>e.tipo==='visita'&&e.status==='feito'&&doMes(e)&&casa(e.pessoa,nome)).length;
+    area.append(
+      h('p',{class:'sec-t'},'Semanas como ancião responsável'),
+      semanas.length?h('div',{class:'lst'},semanas.map(a=>h('div',{class:'ln'},h('b',null,fmtDM(a)+' a '+fmtDM(somaDias(a,6))),h('span',null,a===ini?'esta semana':'')))):h('p',{class:'muted'},S.rodizio.anciaos.length?'Nenhuma nas próximas semanas.':'Sem rodízio configurado.'),
+      h('p',{class:'sec-t'},'Próximos compromissos'),
+      prox.length?h('div',{class:'lst'},prox.map(linha)):h('p',{class:'muted'},'Nada marcado em seu nome.'),
+      pass.length&&h('p',{class:'sec-t'},'Últimos realizados'),
+      pass.length&&h('div',{class:'lst'},pass.map(linha)),
+      h('p',{class:'muted'},'Visitas registradas neste mês: '+visitas));
+  }
+  sel.addEventListener('change',desenha);desenha();
+  abrir('Agenda por ancião',h('div',{class:'form'},h('div',null,h('label',{for:'ag-sel'},'Ancião'),sel),area));
+}
+
+/* ---------- Liturgias e votos batismais ---------- */
+function litAtual(){const o=S.liturgias||{};return {sabado:o.sabado||LIT_PADRAO.sabado,domingo:o.domingo||LIT_PADRAO.domingo,quarta:o.quarta||LIT_PADRAO.quarta};}
+function abrirLiturgias(aba){
+  aba=aba||'sabado';
+  const NOMES={sabado:'Sábado',domingo:'Domingo',quarta:'Quarta-feira'};
+  const corpo=h('div',{class:'form'});
+  function desenha(){
+    corpo.replaceChildren();
+    const itens=litAtual()[aba],proprio=!!(S.liturgias&&S.liturgias[aba]);
+    corpo.append(h('div',{class:'tabs',role:'tablist'},Object.keys(NOMES).map(k=>h('button',{type:'button',role:'tab','aria-selected':aba===k?'true':'false',onclick:()=>{aba=k;desenha();}},NOMES[k]))));
+    corpo.append(h('p',{class:'muted'},proprio?'Roteiro da sua igreja.':'Roteiro modelo. Ajuste os horários à sua igreja.'));
+    const lst=h('div',{class:'lst'});itens.forEach(i=>lst.append(h('div',{class:'ln'},h('b',null,i.h),h('span',null,i.d))));
+    const txt=itens.map(i=>(i.h?i.h+' | ':'')+i.d).join('\n');
+    const ta=h('textarea',{id:'li-txt','aria-label':'Roteiro, uma linha por item no formato hora | descrição',rows:'12',hidden:true,value:txt});
+    const btnEd=h('button',{class:'btn so-editor',type:'button'},'Editar roteiro');
+    const btnSv=h('button',{class:'btn primary so-editor',type:'button',hidden:true},'Salvar roteiro');
+    const btnRs=h('button',{class:'btn so-editor',type:'button',hidden:true},'Restaurar modelo');
+    btnEd.addEventListener('click',()=>{ta.hidden=false;lst.hidden=true;btnEd.hidden=true;btnSv.hidden=false;btnRs.hidden=false;});
+    async function gravar(valor){
+      const nova=Object.assign({},S.liturgias||{});
+      if(valor)nova[aba]=valor;else delete nova[aba];
+      if(await salvarCfg('liturgias',nova)){S.liturgias=nova;toast(valor?'Roteiro salvo':'Modelo restaurado');desenha();}
+    }
+    btnSv.addEventListener('click',()=>{
+      const linhas=ta.value.split('\n').map(s=>s.trim()).filter(Boolean);
+      if(!linhas.length){toast('Escreva pelo menos uma linha.');return;}
+      if(linhas.length>60){toast('Use no máximo 60 linhas.');return;}
+      gravar(linhas.map(l=>{const p=l.indexOf('|');return p>=0?{h:l.slice(0,p).trim(),d:l.slice(p+1).trim()}:{h:'',d:l};}));
+    });
+    btnRs.addEventListener('click',()=>gravar(null));
+    corpo.append(lst,ta,h('div',{class:'acoes'},
+      h('button',{class:'btn',type:'button',onclick:()=>copiarTexto('*Liturgia de '+NOMES[aba].toLowerCase()+'*\n'+itens.map(i=>(i.h?i.h+' - ':'')+i.d).join('\n'))},icone('copy',15),'Copiar roteiro'),
+      btnEd,btnSv,btnRs));
+  }
+  desenha();
+  abrir('Liturgias dos cultos',corpo);
+}
+function abrirVotos(){
+  abrir('Votos batismais',h('div',{class:'form'},
+    h('p',{class:'muted'},'Texto de apoio para o momento do batismo. Confira a redação oficial no Manual da Igreja.'),
+    h('ol',{class:'votos'},VOTOS.map(v=>h('li',null,v))),
+    h('div',{class:'acoes'},
+      h('button',{class:'btn',type:'button',onclick:()=>copiarTexto('*Votos batismais*\n'+VOTOS.map((v,i)=>(i+1)+'. '+v).join('\n'))},icone('copy',15),'Copiar'),
+      h('button',{class:'btn',type:'button',onclick:fechar},'Fechar'))));
+}
+
+/* ---------- Histórico de pregadores ---------- */
+function abrirHistorico(){
+  const todos=S.eventos.filter(e=>e.tipo==='pregacao'&&e.pessoa);
+  if(!todos.length){abrir('Histórico de pregadores',h('p',{class:'vazio'},'Ainda não há pregações com pregador definido.'));return;}
+  const anos=Array.from(new Set(todos.map(e=>e.data.slice(0,4)))).sort().reverse();
+  const anoAtual=String(new Date().getFullYear());
+  const selAno=h('select',{id:'hi-ano','aria-label':'Ano',value:anos.indexOf(anoAtual)>=0?anoAtual:anos[0]},anos.map(a=>h('option',{value:a},a)));
+  const busca=h('input',{type:'search',id:'hi-busca',placeholder:'Buscar pregador ou tema','aria-label':'Buscar pregador ou tema'});
+  const area=h('div',{class:'form'});
+  let linhasPdf=[];
+  function desenha(){
+    area.replaceChildren();
+    const q=nrm(busca.value);
+    const lista=todos.filter(e=>e.data.slice(0,4)===selAno.value&&(!q||nrm(e.pessoa+' '+e.detalhe+' '+e.titulo).indexOf(q)>=0)).sort(ordemEv).reverse();
+    const cont={};lista.forEach(e=>{const k=e.pessoa.trim();cont[k]=(cont[k]||0)+1;});
+    const rank=Object.keys(cont).sort((a,b)=>cont[b]-cont[a]||a.localeCompare(b,'pt-BR')).slice(0,8);
+    linhasPdf=lista.slice().reverse().map(e=>[fmtBR(e.data),e.pessoa,e.detalhe||'',anciaoDaSemana(e.data)||'',ROT_ST[e.status]||'']);
+    area.append(h('p',{class:'sec-t'},'Quem mais pregou'),
+      rank.length?h('div',{class:'ranks'},rank.map(k=>h('span',{class:'tag'},k+' · '+cont[k]))):h('p',{class:'muted'},'Nada encontrado.'),
+      h('p',{class:'sec-t'},lista.length+(lista.length===1?' pregação':' pregações')),
+      h('div',{class:'lst'},lista.map(e=>h('div',{class:'ln'},h('b',null,fmtDM(e.data)),h('span',null,e.pessoa+(e.detalhe?' · '+e.detalhe:'')+(e.status==='a_confirmar'?' (a confirmar)':''))))));
+  }
+  selAno.addEventListener('change',desenha);busca.addEventListener('input',desenha);desenha();
+  abrir('Histórico de pregadores',h('div',{class:'form'},
+    h('div',{class:'g2'},h('div',null,h('label',{for:'hi-ano'},'Ano'),selAno),h('div',null,h('label',{for:'hi-busca'},'Buscar'),busca)),
+    area,
+    h('div',{class:'acoes'},
+      h('button',{class:'btn primary',type:'button',onclick:()=>gerarPDF('Histórico de pregações',selAno.value,['Data','Pregador(a)','Tema ou anotação','Ancião da semana','Situação'],linhasPdf,'historico-pregacoes-'+selAno.value+'.pdf')},icone('file',15),'Baixar PDF'),
+      h('button',{class:'btn',type:'button',onclick:fechar},'Fechar'))));
+}
+
+/* ---------- PDF ---------- */
+function gerarPDF(titulo,sub,cols,linhas,arquivo){
+  const J=window.jspdf&&window.jspdf.jsPDF;
+  if(!J){toast('O gerador de PDF não carregou. Verifique a internet e recarregue a página.');return;}
+  if(!linhas.length){toast('Não há dados para o PDF.');return;}
+  const doc=new J({orientation:'landscape',unit:'mm',format:'a4'});
+  if(!doc.autoTable){toast('O gerador de tabelas do PDF não carregou. Recarregue a página.');return;}
+  doc.setFontSize(16);doc.text(titulo,14,16);
+  doc.setFontSize(10);doc.setTextColor(100);doc.text(sub+'  ·  '+CONFIG.TITULO+'  ·  gerado em '+fmtBR(hojeIso()),14,22);
+  doc.autoTable({head:[cols],body:linhas,startY:27,styles:{fontSize:9,cellPadding:2},headStyles:{fillColor:[27,58,92]},margin:{left:14,right:14}});
+  doc.save(arquivo);
+}
+function pdfMes(){
+  const ano=S.mes.getFullYear(),m=S.mes.getMonth();
+  const lista=S.eventos.filter(doMes).sort(ordemEv);
+  if(!lista.length){toast('Nenhum evento em '+MESES[m]+'.');return;}
+  gerarPDF('Agenda de '+MESES[m]+' '+ano,'Eventos do mês',
+    ['Data','Dia','Hora','Tipo','Título','Responsável','Dirigente','Ancião da semana','Situação'],
+    lista.map(e=>[fmtBR(e.data),DIAS_C[parse(e.data).getDay()],e.hora||'',tipoDe(e).nome,e.titulo||'',e.pessoa||'',e.dirigente||'',anciaoDaSemana(e.data)||'',ROT_ST[e.status]||'']),
+    'agenda-'+ano+'-'+pad(m+1)+'.pdf');
+}
+
+/* ---------- Alertas ---------- */
+function calcAlertas(){
+  const out=[],hoje=hojeIso(),lim2=somaDias(hoje,2),lim14=somaDias(hoje,14);
+  const sem=inicioSemana(hoje),aw=anciaoDaSemana(hoje);
+  if(aw){
+    out.push({nivel:'info',txt:'Ancião da semana: '+aw+' (até sex '+fmtDM(somaDias(sem,6))+').'});
+    const prox=anciaoDaSemana(somaDias(sem,7));
+    if(prox&&prox!==aw)out.push({nivel:'info',txt:'A partir de sáb '+fmtDM(somaDias(sem,7))+': '+prox+'.'});
+  }
+  S.eventos.filter(e=>e.data>=hoje&&e.data<=lim2).sort(ordemEv).forEach(e=>{
+    out.push({nivel:'info',txt:(e.data===hoje?'Hoje':e.data===somaDias(hoje,1)?'Amanhã':fmtCurto(e.data))+': '+(e.titulo||tipoDe(e).nome)+(e.hora?' às '+e.hora:'')+'.'});
+  });
+  S.eventos.filter(e=>(e.tipo==='pregacao'||e.tipo==='santa_ceia')&&e.status==='a_confirmar'&&e.data>=hoje&&e.data<=lim14).sort(ordemEv).forEach(e=>{
+    out.push({nivel:'warn',txt:'Confirmar o culto de '+fmtCurto(e.data)+(e.pessoa?' com '+e.pessoa:'')+'.'});
+  });
+  proximosSabados(3).forEach(s=>{
+    if(!S.eventos.some(e=>e.data===s&&e.tipo==='pregacao'&&e.pessoa))out.push({nivel:'warn',txt:'Sábado '+fmtDM(s)+' sem pregador definido.'});
+  });
+  S.tarefas.filter(t=>!t.feito&&t.prazo).sort((a,b)=>a.prazo.localeCompare(b.prazo)).forEach(t=>{
+    if(t.prazo<hoje)out.push({nivel:'bad',txt:'Tarefa vencida em '+fmtDM(t.prazo)+': '+t.titulo+(t.resp?' ('+t.resp+')':'')+'.'});
+    else if(t.prazo<=somaDias(hoje,3))out.push({nivel:'warn',txt:'Tarefa vence em '+fmtDM(t.prazo)+': '+t.titulo+(t.resp?' ('+t.resp+')':'')+'.'});
+  });
+  return out;
+}
+function updateSino(){
+  const b=$('#b-sino');if(!b)return;
+  const n=calcAlertas().filter(a=>a.nivel!=='info').length;
+  const ant=b.querySelector('.n');if(ant)ant.remove();
+  if(n)b.append(h('span',{class:'n'},String(n)));
+  b.setAttribute('aria-label','Alertas'+(n?' ('+n+')':''));
+}
+function abrirAlertas(){
+  const lista=calcAlertas();
+  const corpo=h('div',{class:'form'});
+  if(!lista.length)corpo.append(h('p',{class:'vazio'},'Nenhum alerta. Tudo em dia.'));
+  lista.forEach(a=>corpo.append(h('div',{class:'al '+a.nivel},h('i'),h('span',null,a.txt))));
+  corpo.append(h('div',{class:'acoes'},h('button',{class:'btn',type:'button',onclick:fechar},'Fechar')));
+  abrir('Alertas',corpo);
+}
+
 /* ---------- Ligações da tela ---------- */
 function iniciar(){
   document.title=CONFIG.TITULO;
@@ -994,6 +1347,8 @@ function iniciar(){
   $('#b-novo').append(icone('plus',16),'Novo evento');
   $('#dlg-x').append(icone('x',18));
   $('#dlg-x').addEventListener('click',fechar);
+  $('#b-sino').append(icone('bell',18));
+  $('#b-sino').addEventListener('click',abrirAlertas);
   $('#b-prev').addEventListener('click',()=>{S.mes=new Date(S.mes.getFullYear(),S.mes.getMonth()-1,1,12);render();});
   $('#b-next').addEventListener('click',()=>{S.mes=new Date(S.mes.getFullYear(),S.mes.getMonth()+1,1,12);render();});
   $('#b-hoje').addEventListener('click',()=>{const n=new Date();S.mes=new Date(n.getFullYear(),n.getMonth(),1,12);render();});
@@ -1010,13 +1365,13 @@ function iniciar(){
     const btn=$('#lg-btn'),er=$('#lg-erro');er.hidden=true;btn.disabled=true;btn.textContent='Entrando…';
     try{
       const r=await api('login',{nome:$('#lg-nome').value.trim(),senha:$('#lg-senha').value});
-      S.token=r.token;S.usuario=r.usuario;guardarSessao($('#lg-manter').checked);
+      S.token=r.token;S.usuario=r.usuario;S.perfil=r.perfil||'editor';guardarSessao($('#lg-manter').checked);
       $('#lg-senha').value='';entrar();
     }catch(err){er.textContent=err.message;er.hidden=false;}
     finally{btn.disabled=false;btn.textContent='Entrar';}
   });
   const s=lerSessao();
-  if(s){S.token=s.token;S.usuario=s.usuario;entrar();}else mostrarLogin('');
+  if(s){S.token=s.token;S.usuario=s.usuario;S.perfil=s.perfil||'editor';entrar();}else mostrarLogin('');
 }
 iniciar();
 })();
