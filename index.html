@@ -59,7 +59,7 @@ svg.ic{display:block;flex:none}
 .check input{width:18px;height:18px;margin:0;flex:none;accent-color:var(--blue)}
 
 /* ---------- Controles ---------- */
-input[type=text],input[type=password],input[type=date],input[type=time],input[type=number],input[type=search],select,textarea{
+input[type=text],input[type=password],input[type=date],input[type=time],input[type=number],input[type=search],input[type=tel],select,textarea{
   width:100%;padding:9px 11px;background:var(--surface);color:var(--fg);border:1px solid var(--line);border-radius:9px;min-height:40px}
 textarea{resize:vertical;min-height:70px}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:14px;cursor:pointer}
@@ -95,7 +95,8 @@ textarea{resize:vertical;min-height:70px}
 .legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
 .lg{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:99px;border:1px solid color-mix(in srgb,var(--c) 45%,transparent);background:color-mix(in srgb,var(--c) 14%,var(--surface));font-size:12.5px;font-weight:500;cursor:pointer}
 .lg .dot{width:9px;height:9px;border-radius:50%;background:var(--c)}
-.lg.off{opacity:.45;text-decoration:line-through;background:var(--surface)}
+.lg.on{box-shadow:0 0 0 2px var(--c);font-weight:600}
+.lg.off{opacity:.5;background:var(--surface)}
 .fbar{display:flex;align-items:center;gap:8px;margin-bottom:12px;font-size:13px;color:var(--muted)}
 
 /* ---------- Calendário ---------- */
@@ -215,8 +216,25 @@ body.leitor dialog form:not(.keep){display:none}
 .al.bad i{background:var(--sun)}
 .al span{min-width:0;overflow-wrap:anywhere}
 .ranks{display:flex;flex-wrap:wrap;gap:6px}
-.votos{margin:0;padding-left:22px;display:grid;gap:8px;font-size:14px}
 .sec-t{margin:6px 0 0;font:700 14px var(--font-head);color:var(--title)}
+.deps{display:grid;gap:5px;max-height:290px;overflow:auto;padding-right:2px}
+.dep{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
+.dep .dp{width:10px;height:10px;border-radius:50%;background:var(--c);margin-top:6px;flex:none}
+.dep .tx{min-width:0}
+.dep b{display:block;font-size:13.5px;font-weight:600}
+.dep small{display:block;color:var(--muted);font-size:12px;overflow-wrap:anywhere}
+.dep[aria-pressed=true]{border-color:var(--c);background:color-mix(in srgb,var(--c) 14%,var(--surface))}
+.dep.off{opacity:.45}
+.tel a{margin-left:8px;font-weight:600;color:var(--blue)}
+.telbox{display:grid;gap:6px;margin-top:6px}
+details.dd{border:1px solid var(--line);border-radius:10px}
+details.dd>summary{padding:10px 12px;cursor:pointer;display:flex;gap:10px;align-items:center;font-weight:600;font-size:14px}
+details.dd .dot{width:10px;height:10px;border-radius:50%;background:var(--c);flex:none}
+details.dd .resumo{font-weight:400;font-size:12.5px;color:var(--muted);margin-left:auto;text-align:right}
+details.dd .dd-b{padding:0 12px 12px;display:grid;gap:10px}
+.apoio{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:6px}
+input[type=color]{width:44px;height:36px;padding:2px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer}
+.row2 .top .ibtn{width:34px;height:34px;flex:none}
 /* ---------- Telas estreitas ---------- */
 @media (max-width:1020px){.shell{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:700px){
@@ -334,19 +352,29 @@ const ST_OPCOES = {
   conf:[['a_confirmar','A confirmar'],['confirmado','Confirmado']],
   plan:[['planejado','Planejado'],['feito','Realizado']]
 };
-const DEPTOS = [
-  ['Escola Sabatina','#23794a'],['Ministério Jovem','#c2570c'],['Desbravadores','#8f6a00'],['Aventureiros','#1f78a8'],
-  ['Diaconato','#b02a23'],['Ministério da Mulher','#b03a74'],['Mordomia','#137a73'],['Música','#5f4bb8']
+/* Lista inicial de departamentos. O editor pode incluir, remover e atribuir anciãos pelo painel. */
+const DEPTOS_PADRAO = [
+  ['Escola Sabatina','#23794a'],['Ministério Pessoal','#2f6db5'],['Ministério Jovem','#c2570c'],['Desbravadores','#8f6a00'],
+  ['Aventureiros','#1f78a8'],['Diaconato','#b02a23'],['Diaconisas','#9b3d8a'],['Ministério da Mulher','#b03a74'],
+  ['Ministério do Homem','#3e4e7a'],['Ministério da Família','#a0522d'],['Ministério da Criança','#d4851f'],
+  ['Ministério do Adolescente','#5a5bc2'],['Mordomia Cristã','#137a73'],['Música','#5f4bb8'],['Comunicação','#4a6572'],
+  ['Saúde','#2e8b57'],['Educação','#6b5b95'],['Ministério da Possibilidade','#8a5a44'],['Ação Solidária (ASA)','#1e8a6e'],['Evangelismo','#c0463d']
 ];
+const PALETA = ['#2f6db5','#c2570c','#23794a','#9b3d8a','#8f6a00','#1f78a8','#b02a23','#5f4bb8','#137a73','#a0522d'];
 const CATS_VISITA = [['membros','Membros regulares'],['idosos','Idosos e enfermos'],['familias','Famílias designadas'],['convertidos','Novos convertidos']];
-const PAUTA_CATS = ['Finanças','Evangelismo','Rol de membros','Ministérios','Cultos e programas','Outros assuntos'];
-const PAUTA_ST = [['pendente','Pendente'],['discussao','Em discussão'],['decidido','Decidido']];
 const META_PADRAO = {membros:8,idosos:6,familias:5,convertidos:3};
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DIAS_L = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
 const DIAS_C = ['dom','seg','ter','qua','qui','sex','sáb'];
 const ROT_ST = {a_confirmar:'A confirmar',confirmado:'Confirmado',planejado:'Planejado',feito:'Realizado'};
-const IND_PADRAO = {estudosMeta:0,estudosAlc:0,gruposMeta:0,gruposAlc:0,batismosMeta:0,batismosAlc:0};
+const IND_PADRAO = [
+  {id:'estudos',nome:'Estudos bíblicos ativos',meta:0,alc:0},
+  {id:'grupos',nome:'Pequenos grupos ativos',meta:0,alc:0},
+  {id:'batismos',nome:'Batismos no ano',meta:0,alc:0}
+];
+const IND_SUGESTOES = ['Estudos bíblicos ativos','Pequenos grupos ativos','Batismos no ano','Visitas missionárias no ano','Interessados em estudo bíblico','Membros na Escola Sabatina','Membros resgatados','Classes bíblicas em andamento','Livros e revistas distribuídos'];
+/* Dias com culto: sábado, domingo e quarta-feira. */
+const CULTOS_DIA = {6:'sábado',0:'domingo',3:'quarta'};
 /* Roteiros de culto: modelo inicial. Cada igreja ajusta pelo botão Editar roteiro. */
 const LIT_PADRAO = {
   sabado:[
@@ -371,24 +399,11 @@ const LIT_PADRAO = {
     {h:'20:27',d:'Mensagem musical'},{h:'20:30',d:'Sermão'},{h:'20:55',d:'Hino final'},{h:'21:00',d:'Oração final'}
   ]
 };
-const VOTOS = [
-  'Crê que há um só Deus: Pai, Filho e Espírito Santo, uma unidade de três pessoas coeternas?',
-  'Aceita a morte de Jesus Cristo no Calvário como o sacrifício expiatório por seus pecados?',
-  'Aceita Jesus Cristo como seu Senhor e Salvador pessoal?',
-  'Aceita pela fé a justiça de Cristo, seu intercessor no santuário celestial?',
-  'Crê que a Bíblia é a inspirada Palavra de Deus, a única regra de fé e prática?',
-  'Aceita os Dez Mandamentos, inclusive o sábado do sétimo dia como memorial da Criação?',
-  'Aguarda a breve volta de Jesus e testemunhará de Sua amorável salvação?',
-  'Aceita o ensino bíblico dos dons espirituais, inclusive o dom de profecia?',
-  'Crê na organização da Igreja e a sustentará com dízimos, ofertas e esforço pessoal?',
-  'Crê que seu corpo é o templo do Espírito Santo e evitará substâncias prejudiciais?',
-  'Conhece os princípios fundamentais da Igreja Adventista e propõe-se a viver em harmonia com eles?',
-  'Aceita o batismo por imersão como expressão pública de fé em Cristo?',
-  'Aceita que a Igreja Adventista do Sétimo Dia é a igreja remanescente da profecia bíblica?'
-];
-
 /* ---------- Ícones ---------- */
 const ICONES = {
+  phone:'<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/>',
+  up:'<path d="m6 15 6-6 6 6"/>',
+  down:'<path d="m6 9 6 6 6-6"/>',
   home:'<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',
   users:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.8 0 5 2.2 5 5"/>',
   mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
@@ -453,18 +468,18 @@ const dataLonga = iso => {const d=parse(iso);return DIAS_L[d.getDay()]+', '+d.ge
 const fmtCurto = iso => DIAS_C[parse(iso).getDay()]+' '+fmtDM(iso);
 const novoId = () => (window.crypto&&crypto.randomUUID)?crypto.randomUUID().replace(/-/g,'').slice(0,10):Math.random().toString(36).slice(2,12);
 const tipoDe = ev => TIPOS[ev.tipo]||TIPOS.outro;
-const corDepto = nome => {const d=DEPTOS.find(x=>x[0]===nome);return d?d[1]:'#6b7a80';};
+const corDepto = nome => {const d=S.deptos.find(x=>x.nome===nome);return d?d.cor:'#6b7a80';};
 function sabadosDoMes(ano,mes){const out=[];const d=new Date(ano,mes,1,12);while(d.getMonth()===mes){if(d.getDay()===6)out.push(isoOf(d));d.setDate(d.getDate()+1);}return out;}
-function proximosSabados(n){const d=new Date();d.setHours(12,0,0,0);while(d.getDay()!==6)d.setDate(d.getDate()+1);const o=[];for(let i=0;i<n;i++){o.push(isoOf(d));d.setDate(d.getDate()+7);}return o;}
 let toastT=null;
 function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>{t.hidden=true;},3600);}
 
 /* ---------- Estado ---------- */
 const S = {
-  token:'',usuario:'',perfil:'editor',eventos:[],tarefas:[],pauta:[],metas:Object.assign({},META_PADRAO),
-  rodizio:{anciaos:[],inicio:''},liturgias:null,indicadores:Object.assign({},IND_PADRAO),
+  token:'',usuario:'',perfil:'editor',eventos:[],tarefas:[],pessoas:[],usuarios:[],metas:Object.assign({},META_PADRAO),
+  rodizio:{anciaos:[],inicio:''},liturgias:null,indicadores:IND_PADRAO.map(i=>Object.assign({},i)),
+  deptos:DEPTOS_PADRAO.map(p=>({nome:p[0],cor:p[1],responsavel:'',apoio:[]})),
   mes:new Date(new Date().getFullYear(),new Date().getMonth(),1,12),
-  ocultos:new Set(),depto:'',busca:'',vista:'cal',poll:null
+  tipos:new Set(),depto:'',busca:'',vista:'cal',poll:null
 };
 
 /* ---------- API (Apps Script) ---------- */
@@ -480,7 +495,12 @@ async function api(action,dados){
     });
     const j=await r.json();
     if(j.auth===false&&action!=='login'){sair('Sua sessão expirou. Entre novamente.');throw new Error(j.erro||'Sessão expirada.');}
-    if(!j.ok)throw new Error(j.erro||'Erro no servidor.');
+    if(!j.ok){
+      const m=j.erro||'Erro no servidor.';
+      if(/^(Configuração inválida|Entidade inválida|Valor inválido em|Configuração desconhecida)/.test(m))
+        throw new Error('O servidor está com uma versão antiga do Code.gs. Cole o código novo no Apps Script e publique uma Nova versão da implantação.');
+      throw new Error(m);
+    }
     return j;
   }catch(e){
     if(e.name==='AbortError')throw new Error('O servidor demorou para responder.');
@@ -517,21 +537,24 @@ function demoSeed(){
       {id:novoId(),titulo:'Atualizar o rol de visitação dos idosos',resp:'Ancião Costa',prazo:dia(20),depto:'Diaconato',feito:false},
       {id:novoId(),titulo:'Confirmar escala dos Desbravadores',resp:'Ancião Lima',prazo:'',depto:'Desbravadores',feito:false},
       {id:novoId(),titulo:'Reunir líderes de pequenos grupos',resp:'',prazo:dia(27),depto:'Ministério Pessoal',feito:true}],
-    pauta:[{id:novoId(),assunto:'Plano de evangelismo do próximo trimestre',categoria:'Evangelismo',obs:'',status:'pendente',decisao:''}],
+    pessoas:[{id:novoId(),nome:'Pr. Silva',tipo:'convidado',telefone:'(69) 99999-0000',origem:'Distrito',obs:'Exemplo de demonstração'}],
     config:{metasVisitas:Object.assign({},META_PADRAO),igreja:''}};
 }
-function demoDB(){try{const r=localStorage.getItem('painel_demo');if(r)return JSON.parse(r);}catch(_){}const d=demoSeed();demoSave(d);return d;}
+function demoDB(){try{const r=localStorage.getItem('painel_demo');if(r){const o=JSON.parse(r);o.pessoas=o.pessoas||[];o.config=o.config||{};return o;}}catch(_){}const d=demoSeed();demoSave(d);return d;}
 function demoSave(d){try{localStorage.setItem('painel_demo',JSON.stringify(d));}catch(_){}}
 async function demoApi(action,dados){
   const d=demoDB();
   if(action==='login'){if(!dados.nome||!dados.senha)throw new Error('Informe nome e senha.');return {ok:true,token:'demo',usuario:String(dados.nome).trim(),perfil:'editor'};}
-  if(action==='listar')return {ok:true,eventos:d.eventos,tarefas:d.tarefas,pauta:d.pauta,config:d.config,perfil:'editor'};
+  if(action==='listar'){
+    const us=[S.usuario,'Ancião Costa','Ancião Lima'].filter(Boolean);
+    return {ok:true,eventos:d.eventos,tarefas:d.tarefas,pessoas:d.pessoas,usuarios:us.map(n=>({nome:n,perfil:'editor'})),config:d.config,perfil:'editor'};
+  }
   if(action==='salvar'){
-    const col=d[dados.entidade];
+    d[dados.entidade]=d[dados.entidade]||[];const col=d[dados.entidade];
     (dados.itens||[]).forEach(it=>{const i=col.findIndex(x=>x.id===it.id);const o=Object.assign({},i>=0?col[i]:{},it,{atualizadoPor:S.usuario,atualizadoEm:new Date().toISOString()});if(i>=0)col[i]=o;else col.push(o);});
     demoSave(d);return {ok:true,itens:dados.itens};
   }
-  if(action==='excluir'){d[dados.entidade]=d[dados.entidade].filter(x=>x.id!==dados.id);demoSave(d);return {ok:true};}
+  if(action==='excluir'){d[dados.entidade]=(d[dados.entidade]||[]).filter(x=>x.id!==dados.id);demoSave(d);return {ok:true};}
   if(action==='config'){d.config[dados.chave]=dados.valor;demoSave(d);return {ok:true};}
   if(action==='trocarSenha')return {ok:true,token:'demo'};
   throw new Error('Ação desconhecida.');
@@ -562,7 +585,7 @@ function mostrarLogin(msg){
 }
 function sair(msg){
   clearInterval(S.poll);S.token='';S.usuario='';S.perfil='editor';document.body.classList.remove('leitor');limparSessao();
-  S.eventos=[];S.tarefas=[];S.pauta=[];fechar();
+  S.eventos=[];S.tarefas=[];S.pessoas=[];S.usuarios=[];S.tipos.clear();S.depto='';fechar();
   mostrarLogin(msg);
 }
 function entrar(){
@@ -575,15 +598,29 @@ function entrar(){
 
 /* ---------- Dados ---------- */
 function setSync(t){$('#sync').textContent=t;}
+function normDepto(d){
+  return {nome:String(d.nome||''),cor:/^#[0-9a-f]{6}$/i.test(d.cor||'')?d.cor:'#6b7a80',responsavel:String(d.responsavel||''),apoio:Array.isArray(d.apoio)?d.apoio.map(String):[]};
+}
+function normIndicadores(x){
+  if(Array.isArray(x))return x.map(i=>({id:String(i.id||novoId()),nome:String(i.nome||''),meta:Number(i.meta)||0,alc:Number(i.alc)||0}));
+  if(x&&typeof x==='object'&&('estudosMeta' in x||'gruposMeta' in x||'batismosMeta' in x))  // servidor da versão anterior
+    return [{id:'estudos',nome:'Estudos bíblicos ativos',meta:Number(x.estudosMeta)||0,alc:Number(x.estudosAlc)||0},
+            {id:'grupos',nome:'Pequenos grupos ativos',meta:Number(x.gruposMeta)||0,alc:Number(x.gruposAlc)||0},
+            {id:'batismos',nome:'Batismos no ano',meta:Number(x.batismosMeta)||0,alc:Number(x.batismosAlc)||0}];
+  return IND_PADRAO.map(i=>Object.assign({},i));
+}
 function norm(r){
   S.eventos=(r.eventos||[]).slice();
   S.tarefas=(r.tarefas||[]).map(t=>Object.assign({},t,{feito:t.feito===true||t.feito==='true'}));
-  S.pauta=(r.pauta||[]).slice();
+  S.pessoas=(r.pessoas||[]).slice();
+  S.usuarios=(r.usuarios||[]).slice();
   const c=r.config||{};
   S.metas=Object.assign({},META_PADRAO,c.metasVisitas||{});
   S.rodizio=Object.assign({anciaos:[],inicio:''},c.rodizio||{});
   S.liturgias=c.liturgias||null;
-  S.indicadores=Object.assign({},IND_PADRAO,c.indicadores||{});
+  S.indicadores=normIndicadores(c.indicadores);
+  S.deptos=(Array.isArray(c.deptos)&&c.deptos.length?c.deptos:DEPTOS_PADRAO.map(p=>({nome:p[0],cor:p[1]}))).map(normDepto);
+  if(S.depto&&!S.deptos.some(d=>d.nome===S.depto))S.depto='';
   if(r.perfil&&r.perfil!==S.perfil){S.perfil=r.perfil;aplicaPerfil();}
 }
 async function carregar(silencioso){
@@ -621,7 +658,7 @@ async function excluir(col,id){
 
 /* ---------- Filtros ---------- */
 function visivel(ev){
-  if(S.ocultos.has(ev.tipo))return false;
+  if(S.tipos.size&&!S.tipos.has(ev.tipo))return false;
   if(S.depto&&ev.depto!==S.depto)return false;
   const q=S.busca.trim().toLowerCase();
   if(q){
@@ -646,14 +683,20 @@ function render(){
 function renderLegenda(){
   const box=$('#legenda');box.replaceChildren();
   Object.keys(TIPOS).forEach(k=>{
-    const t=TIPOS[k],off=S.ocultos.has(k);
-    box.append(h('button',{class:'lg'+(off?' off':''),type:'button',style:'--c:'+t.cor,'aria-pressed':off?'false':'true',title:off?'Mostrar':'Ocultar',
-      onclick:()=>{if(off)S.ocultos.delete(k);else S.ocultos.add(k);render();}},h('span',{class:'dot'}),t.nome));
+    const t=TIPOS[k],on=S.tipos.has(k),off=S.tipos.size>0&&!on;
+    box.append(h('button',{class:'lg'+(on?' on':'')+(off?' off':''),type:'button',style:'--c:'+t.cor,'aria-pressed':on?'true':'false',
+      title:on?'Tirar este assunto do filtro':'Mostrar só este assunto no calendário',
+      onclick:()=>{if(on)S.tipos.delete(k);else S.tipos.add(k);render();}},h('span',{class:'dot'}),t.nome));
   });
 }
 function renderFiltro(){
-  const f=$('#fbar');f.replaceChildren();f.hidden=!S.depto;
-  if(S.depto){f.append('Mostrando só: ',h('b',null,S.depto),h('button',{class:'btn sm',type:'button',onclick:()=>{S.depto='';render();}},'Limpar filtro'));}
+  const f=$('#fbar');f.replaceChildren();
+  const nomes=Array.from(S.tipos).map(k=>TIPOS[k].nome);
+  const ativo=nomes.length>0||!!S.depto;
+  f.hidden=!ativo;
+  if(!ativo)return;
+  f.append('Mostrando só: ',h('b',null,[nomes.join(', '),S.depto&&('departamento '+S.depto)].filter(Boolean).join(' · ')),
+    h('button',{class:'btn sm',type:'button',onclick:()=>{S.tipos.clear();S.depto='';render();}},'Mostrar tudo'));
 }
 
 /* ---------- Calendário ---------- */
@@ -714,7 +757,7 @@ function statusTag(ev){
 }
 function linhaEvento(ev,aoAbrir){
   const t=tipoDe(ev);
-  const sub=[ev.hora,ev.pessoa&&(t.pessoa+': '+ev.pessoa),ev.dirigente&&('Dirigente: '+ev.dirigente),ev.depto].filter(Boolean).join(' · ');
+  const sub=[ev.hora,ev.pessoa&&(t.pessoa+': '+ev.pessoa),ev.dirigente&&('Ancião responsável: '+ev.dirigente),ev.depto].filter(Boolean).join(' · ');
   return h('div',{class:'item',style:'--c:'+t.cor},
     h('span',{class:'ico'},icone(t.icone,18)),
     h('div',{class:'tx'},h('b',null,ev.titulo||t.nome),sub&&h('span',null,sub),ev.detalhe&&h('span',null,ev.detalhe)),
@@ -761,31 +804,39 @@ function cardVisitacao(){
   ]);
 }
 function cardDeptos(){
-  const badges=h('div',{class:'badges'});
-  DEPTOS.forEach(d=>{
-    const on=S.depto===d[0];
-    badges.append(h('button',{class:'badge'+(S.depto&&!on?' off':''),type:'button',style:'--c:'+d[1],'aria-pressed':on?'true':'false',
-      title:on?'Limpar filtro':'Ver só '+d[0],onclick:()=>{S.depto=on?'':d[0];render();}},d[0]));
+  const lista=h('div',{class:'deps'});
+  S.deptos.forEach(d=>{
+    const on=S.depto===d.nome;
+    const papel=[d.responsavel&&('Ancião: '+d.responsavel),d.apoio.length&&('Apoio: '+d.apoio.join(', '))].filter(Boolean).join(' · ');
+    lista.append(h('button',{class:'dep'+(S.depto&&!on?' off':''),type:'button',style:'--c:'+d.cor,'aria-pressed':on?'true':'false',
+      title:on?'Limpar filtro':'Ver só '+d.nome+' no calendário',onclick:()=>{S.depto=on?'':d.nome;render();}},
+      h('span',{class:'dp'}),h('span',{class:'tx'},h('b',null,d.nome),h('small',null,papel||'Sem ancião responsável'))));
   });
-  let abertas=S.tarefas.filter(t=>!t.feito&&(!S.depto||t.depto===S.depto)).sort((a,b)=>(a.prazo||'9999').localeCompare(b.prazo||'9999'));
+  const abertas=S.tarefas.filter(t=>!t.feito&&(!S.depto||t.depto===S.depto)).sort((a,b)=>(a.prazo||'9999').localeCompare(b.prazo||'9999'));
   const total=abertas.length;
-  const lista=h('div',{class:'lst'});
+  const tarefas=h('div',{class:'lst'});
   abertas.slice(0,6).forEach(t=>{
     const late=t.prazo&&t.prazo<hojeIso();
-    lista.append(h('label',{class:'tk'},
+    tarefas.append(h('label',{class:'tk'},
       h('input',{type:'checkbox',disabled:!pode(),'aria-label':'Concluir: '+t.titulo,onchange:e=>salvar('tarefas',[Object.assign({},t,{feito:e.target.checked})])}),
       t.depto&&h('span',{class:'dp',style:'--c:'+corDepto(t.depto),title:t.depto}),
       h('span',{class:'t'},t.titulo,(t.resp||t.prazo)&&h('small',{class:late?'late':''},[t.resp,t.prazo&&('até '+fmtBR(t.prazo))].filter(Boolean).join(' · ')))));
   });
-  if(!total)lista.append(h('p',{class:'muted'},'Nenhuma tarefa em aberto.'));
-  return cartao('Cuidado dos Departamentos','users',null,[
-    badges,
-    h('div',null,h('p',{class:'sub',style:'margin-bottom:8px'},'Tarefas em aberto ('+total+')'),lista),
+  if(!total)tarefas.append(h('p',{class:'muted'},'Nenhuma tarefa em aberto.'));
+  const acao=h('button',{class:'ibtn so-editor',type:'button',title:'Atribuir anciãos aos departamentos','aria-label':'Gerenciar departamentos',onclick:abrirDeptos},icone('cog',18));
+  return cartao('Cuidado dos Departamentos','users',acao,[
+    lista,
+    h('div',null,h('p',{class:'sub',style:'margin-bottom:8px'},'Tarefas em aberto'+(S.depto?' de '+S.depto:'')+' ('+total+')'),tarefas),
     h('div',{class:'rodape'},
-      h('button',{class:'btn sm so-editor',type:'button',onclick:()=>abrirTarefas('tarefas')},icone('plus',14),'Nova tarefa'),
-      h('button',{class:'btn sm',type:'button',onclick:()=>abrirTarefas('tarefas')},'Ver todas'))
+      h('button',{class:'btn sm so-editor',type:'button',onclick:()=>abrirTarefas()},icone('plus',14),'Nova tarefa'),
+      h('button',{class:'btn sm',type:'button',onclick:()=>abrirTarefas()},'Ver todas'))
   ]);
 }
+function pregadorDo(iso){return S.eventos.find(e=>e.data===iso&&e.tipo==='pregacao'&&e.pessoa);}
+function diasDeCulto(ini,n){const o=[];for(let i=0;i<n;i++){const d=somaDias(ini,i);if(CULTOS_DIA[parse(d).getDay()])o.push(d);}return o;}
+const nomeCulto=iso=>'Culto de '+CULTOS_DIA[parse(iso).getDay()];
+const tituloGenerico=t=>!t||/^Culto de /.test(t);
+
 function cardPulpito(){
   const mes=S.eventos.filter(doMes).sort(ordemEv);
   const pre=mes.filter(e=>e.tipo==='pregacao');
@@ -793,39 +844,31 @@ function cardPulpito(){
   const dir=mes.filter(e=>e.dirigente);
   const ano=S.mes.getFullYear(),m=S.mes.getMonth();
   const hoje=hojeIso();
-  const sem=sabadosDoMes(ano,m).filter(s=>s>=hoje&&!S.eventos.some(e=>e.data===s&&e.tipo==='pregacao'&&e.pessoa));
+  const sem=[];
+  {const d=new Date(ano,m,1,12);while(d.getMonth()===m){const iso=isoOf(d);if(iso>=hoje&&CULTOS_DIA[d.getDay()]&&!pregadorDo(iso))sem.push(iso);d.setDate(d.getDate()+1);}}
   const bloco=(titulo,linhas,vazio)=>h('div',null,h('p',{class:'sub',style:'margin-bottom:6px'},titulo),
     linhas.length?h('div',{class:'lst'},linhas):h('p',{class:'muted'},vazio));
-  const ln=(d,txt)=>h('div',{class:'ln'},h('b',null,fmtDM(d)),h('span',null,txt));
+  const ln=(d,txt)=>h('div',{class:'ln'},h('b',null,fmtCurto(d)),h('span',null,txt));
   const partes=[
-    bloco('Oradores do mês',pre.map(e=>ln(e.data,(e.pessoa||'a definir')+(e.titulo&&e.titulo!=='Culto de sábado'?' — '+e.titulo:'')+(e.status==='a_confirmar'?' (a confirmar)':''))),'Nenhuma pregação marcada neste mês.'),
+    bloco('Pregadores do mês',pre.map(e=>ln(e.data,(e.pessoa||'a definir')+(!tituloGenerico(e.titulo)?' — '+e.titulo:'')+(e.status==='a_confirmar'?' (a confirmar)':''))),'Nenhuma pregação marcada neste mês.'),
     bloco('Cerimônias especiais',cer.map(e=>ln(e.data,e.titulo||tipoDe(e).nome)),'Sem Santa Ceia ou batismo neste mês.'),
-    bloco('Coordenação dos cultos',dir.map(e=>ln(e.data,e.dirigente)),'Nenhum dirigente definido.')
+    bloco('Ancião responsável nos cultos',dir.map(e=>ln(e.data,e.dirigente)),'Nenhum ancião responsável definido.')
   ];
   const aw=anciaoDaSemana(hoje);
   if(aw)partes.unshift(h('div',{class:'semana'},h('b',null,'Ancião da semana: '),aw));
   if(sem.length){
     const btns=h('div',{class:'btns'});
-    sem.forEach(s=>btns.append(h('button',{class:'btn sm',type:'button',onclick:()=>abrirEvento({tipo:'pregacao',data:s,status:'a_confirmar',titulo:'Culto de sábado'})},fmtDM(s))));
-    partes.unshift(h('div',{class:'alerta'},h('b',null,'Sábados sem pregador: '),'toque na data para definir.',btns));
+    sem.slice(0,12).forEach(s=>btns.append(h('button',{class:'btn sm',type:'button',onclick:()=>abrirEvento({tipo:'pregacao',data:s,status:'a_confirmar',titulo:nomeCulto(s)})},fmtCurto(s))));
+    partes.unshift(h('div',{class:'alerta'},h('b',null,'Cultos sem pregador: '),'sábado, domingo e quarta. Toque na data para definir.'+(sem.length>12?' (mostrando 12 de '+sem.length+')':''),btns));
   }
   partes.push(h('div',{class:'rodape'},h('button',{class:'btn sm',type:'button',onclick:abrirEscalaTexto},icone('copy',14),'Copiar escala para WhatsApp')));
   return cartao('Púlpito e Liturgia','mic',null,partes);
 }
-function cardPauta(){
-  const pend=S.pauta.filter(p=>p.status!=='decidido');
-  const lista=h('div',{class:'lst'});
-  pend.slice(0,4).forEach(p=>lista.append(h('div',{class:'ln'},h('span',null,p.assunto,h('small',{class:'muted',style:'display:block'},(p.categoria||'')+(p.status==='discussao'?' · em discussão':''))))));
-  if(!pend.length)lista.append(h('p',{class:'muted'},'Nenhum assunto pendente.'));
-  return cartao('Pauta da Comissão','gavel',null,[
-    lista,
-    h('div',{class:'rodape'},
-      h('button',{class:'btn sm so-editor',type:'button',onclick:()=>abrirTarefas('pauta')},icone('plus',14),'Novo assunto'),
-      h('button',{class:'btn sm',type:'button',onclick:()=>abrirTarefas('pauta')},'Ver pauta ('+S.pauta.length+')'))
-  ]);
-}
 function renderLateral(){
-  const s=$('#side');s.replaceChildren(cardVisitacao(),cardIndicadores(),cardDeptos(),cardPulpito(),cardFerramentas(),cardPauta());
+  const s=$('#side');
+  const velho=s.querySelector('.deps'),y=velho?velho.scrollTop:0;
+  s.replaceChildren(cardVisitacao(),cardIndicadores(),cardDeptos(),cardPulpito(),cardFerramentas());
+  const novo=s.querySelector('.deps');if(novo)novo.scrollTop=y;
 }
 
 /* ---------- Janela ---------- */
@@ -842,9 +885,13 @@ function detalhesEvento(ev){
   const t=tipoDe(ev);
   const rotSt={a_confirmar:'A confirmar',confirmado:'Confirmado',planejado:'Planejado',feito:'Realizado'}[ev.status];
   const cat=(CATS_VISITA.find(c=>c[0]===ev.categoria)||[])[1];
+  const pes=ev.pessoa?buscaPessoa(ev.pessoa):null;
+  const dep=ev.depto?deptoPorNome(ev.depto):null;
   const linhas=[
     ['Quando',dataLonga(ev.data)+(ev.hora?' às '+ev.hora:'')],
-    [t.pessoa,ev.pessoa],['Dirigente do culto',ev.dirigente],['Categoria',cat],['Departamento',ev.depto],
+    [t.pessoa,ev.pessoa],['Telefone',pes&&pes.telefone?linksTel(pes.telefone):''],
+    ['Ancião responsável',ev.dirigente],['Categoria',cat],['Departamento',ev.depto],
+    ['Ancião do departamento',dep&&dep.responsavel],['Apoio do departamento',dep&&dep.apoio.length?dep.apoio.join(', '):''],
     ['Situação',rotSt],['Ancião da semana',anciaoDaSemana(ev.data)],['Anotações',ev.detalhe],['Registrado por',ev.criadoPor]
   ].filter(l=>l[1]);
   const dl=h('dl');
@@ -866,7 +913,7 @@ function abrirDia(iso){
   lista.forEach(ev=>corpo.append(h('div',{class:'ver-card'},detalhesEvento(ev),
     h('div',{class:'acoes'},h('button',{class:'btn sm so-editor',type:'button',onclick:()=>abrirEvento(ev)},'Editar este evento')))));
   const d=parse(iso).getDay();
-  const sug=d===6?'pregacao':d===3?'pg':'visita';
+  const sug=(d===6||d===0)?'pregacao':d===3?'pg':'visita';
   corpo.append(h('button',{class:'btn primary so-editor',type:'button',onclick:()=>abrirEvento({data:iso,tipo:sug})},icone('plus',16),'Adicionar evento'));
   abrir(dataLonga(iso),corpo);
 }
@@ -875,23 +922,53 @@ function abrirEvento(base){
   if(!pode()){toast('Seu acesso é somente de leitura.');return;}
   const edit=!!base.id;
   const ev=Object.assign({tipo:'pregacao',data:hojeIso(),hora:'',titulo:'',pessoa:'',dirigente:'',detalhe:'',depto:'',categoria:'',status:''},base);
+  if(!edit&&!ev.dirigente)ev.dirigente=anciaoDaSemana(ev.data)||'';
+  let dirManual=!!base.dirigente;
+  const nomesDep=S.deptos.map(d=>d.nome);if(ev.depto&&nomesDep.indexOf(ev.depto)<0)nomesDep.push(ev.depto);
   const selTipo=h('select',{id:'e-tipo',value:ev.tipo},Object.keys(TIPOS).map(k=>h('option',{value:k},TIPOS[k].nome)));
   const inTitulo=h('input',{type:'text',id:'e-titulo',value:ev.titulo,maxlength:'120',autocomplete:'off'});
   const inData=h('input',{type:'date',id:'e-data',value:ev.data,required:true});
   const inHora=h('input',{type:'time',id:'e-hora',value:ev.hora});
   const lbPessoa=h('label',{for:'e-pessoa'},'Responsável');
-  const inPessoa=h('input',{type:'text',id:'e-pessoa',value:ev.pessoa,maxlength:'120',autocomplete:'off'});
-  const inDir=h('input',{type:'text',id:'e-dir',value:ev.dirigente,maxlength:'120',autocomplete:'off'});
+  const inPessoa=h('input',{type:'text',id:'e-pessoa',value:ev.pessoa,maxlength:'120',autocomplete:'off',list:'dl-pes'});
+  const inDir=h('input',{type:'text',id:'e-dir',value:ev.dirigente,maxlength:'120',autocomplete:'off',list:'dl-anc'});
   const selCat=h('select',{id:'e-cat',value:ev.categoria},h('option',{value:''},'Escolha'),CATS_VISITA.map(c=>h('option',{value:c[0]},c[1])));
-  const selDepto=h('select',{id:'e-depto',value:ev.depto},h('option',{value:''},'Nenhum'),DEPTOS.map(d=>h('option',{value:d[0]},d[0])));
+  const selDepto=h('select',{id:'e-depto',value:ev.depto},h('option',{value:''},'Nenhum'),nomesDep.map(n=>h('option',{value:n},n)));
+  const dicaDep=h('p',{class:'muted'});
   const selSt=h('select',{id:'e-st'});
   const inDet=h('textarea',{id:'e-det',maxlength:'1500',value:ev.detalhe});
-  const wDir=h('div',null,h('label',{for:'e-dir'},'Dirigente do culto'),inDir);
+  const wDir=h('div',null,h('label',{for:'e-dir'},'Ancião responsável'),inDir);
   const wCat=h('div',null,h('label',{for:'e-cat'},'Categoria da visita'),selCat);
   const chkRep=h('input',{type:'checkbox',id:'e-rep'});
   const inAte=h('input',{type:'date',id:'e-ate'});
   const wRep=h('div',{class:'row2'},h('label',{class:'check',for:'e-rep'},chkRep,'Repetir toda semana'),h('div',{id:'e-ate-w',hidden:true},h('label',{for:'e-ate'},'Repetir até'),inAte));
   chkRep.addEventListener('change',()=>{$('#e-ate-w').hidden=!chkRep.checked;if(chkRep.checked&&!inAte.value){const d=parse(inData.value||hojeIso());d.setDate(d.getDate()+28);inAte.value=isoOf(d);}});
+  /* telefone do pregador */
+  const inTel=h('input',{type:'tel',id:'e-tel',maxlength:'25',placeholder:'(69) 9 0000-0000',autocomplete:'off'});
+  const chkCad=h('input',{type:'checkbox',id:'e-cad'});
+  const telBox=h('div',{class:'telbox'});
+  function atualizaTel(){
+    telBox.replaceChildren();
+    const nome=inPessoa.value.trim();
+    if(TIPOS[selTipo.value].pessoa!=='Pregador'||!nome)return;
+    const p=buscaPessoa(nome);
+    if(p&&p.telefone){telBox.append(h('p',{class:'muted tel'},'Telefone de '+p.nome+': ',linksTel(p.telefone)));return;}
+    telBox.append(h('label',{for:'e-tel'},'Telefone do pregador (opcional)'),inTel);
+    if(p)telBox.append(h('p',{class:'muted'},p.nome+' ainda não tem telefone no cadastro. O número será salvo nele.'));
+    else telBox.append(h('label',{class:'check',for:'e-cad'},chkCad,'Cadastrar como pregador convidado'));
+  }
+  function atualizaDep(){
+    const d=deptoPorNome(selDepto.value);
+    dicaDep.textContent=d?((d.responsavel?'Ancião do departamento: '+d.responsavel:'Este departamento ainda não tem ancião responsável.')+(d.apoio.length?' · Apoio: '+d.apoio.join(', '):'')):'';
+    return d;
+  }
+  selDepto.addEventListener('change',()=>{
+    const d=atualizaDep();
+    if(d&&d.responsavel&&!inPessoa.value.trim()&&TIPOS[selTipo.value].pessoa!=='Pregador'&&selTipo.value!=='santa_ceia'){inPessoa.value=d.responsavel;atualizaTel();}
+  });
+  inDir.addEventListener('input',()=>{dirManual=true;});
+  inData.addEventListener('change',()=>{if(!dirManual&&inData.value)inDir.value=anciaoDaSemana(inData.value)||'';});
+  inPessoa.addEventListener('input',atualizaTel);
   let stAtual=ev.status;
   function atualiza(){
     const t=TIPOS[selTipo.value];
@@ -902,9 +979,10 @@ function abrirEvento(base){
     stAtual=selSt.value||stAtual;
     selSt.replaceChildren(...ops.map(o=>h('option',{value:o[0]},o[1])));
     selSt.value=ops.some(o=>o[0]===stAtual)?stAtual:ops[0][0];
+    atualizaTel();
   }
   selTipo.addEventListener('change',atualiza);
-  atualiza();
+  atualiza();atualizaDep();
   let armado=false;
   const btnSalvar=h('button',{class:'btn primary',type:'submit'},'Salvar');
   const acoes=h('div',{class:'acoes'},btnSalvar,h('button',{class:'btn',type:'button',onclick:fechar},'Cancelar'));
@@ -920,10 +998,12 @@ function abrirEvento(base){
     h('div',null,h('label',{for:'e-tipo'},'Tipo (define a cor)'),selTipo),
     h('div',null,h('label',{for:'e-titulo'},'Título'),inTitulo),
     h('div',{class:'g2'},h('div',null,h('label',{for:'e-data'},'Data'),inData),h('div',null,h('label',{for:'e-hora'},'Hora (opcional)'),inHora)),
-    h('div',null,lbPessoa,inPessoa),wDir,wCat,
+    h('div',null,lbPessoa,inPessoa,telBox),wDir,wCat,
     h('div',{class:'g2'},h('div',null,h('label',{for:'e-st'},'Situação'),selSt),h('div',null,h('label',{for:'e-depto'},'Departamento'),selDepto)),
+    dicaDep,
     h('div',null,h('label',{for:'e-det'},'Tema, texto bíblico ou anotações'),inDet),
-    !edit&&wRep,acoes);
+    !edit&&wRep,acoes,
+    datalist('dl-pes',nomesPessoas()),datalist('dl-anc',listaAnciaos().map(a=>a.nome)));
   form.addEventListener('submit',async e=>{
     e.preventDefault();
     if(!inData.value){toast('Escolha a data.');return;}
@@ -937,10 +1017,18 @@ function abrirEvento(base){
       while(isoOf(d)<=inAte.value&&itens.length<60){itens.push(Object.assign({id:novoId()},item,{data:isoOf(d)}));d.setDate(d.getDate()+7);}
     }else itens=[Object.assign({id:novoId()},item)];
     btnSalvar.disabled=true;
-    if(await salvar('eventos',itens)){fechar();toast(itens.length>1?itens.length+' eventos criados':'Evento salvo');}
-    else btnSalvar.disabled=false;
+    if(await salvar('eventos',itens)){
+      if(t.pessoa==='Pregador'&&item.pessoa)await registrarContato(item.pessoa,inTel.value.trim(),chkCad.checked);
+      fechar();toast(itens.length>1?itens.length+' eventos criados':'Evento salvo');
+    }else btnSalvar.disabled=false;
   });
   abrir(edit?'Editar evento':'Novo evento',form);
+}
+/* Guarda o telefone digitado no evento: atualiza quem já está no cadastro ou cria um pregador convidado. */
+async function registrarContato(nome,tel,cadastrar){
+  const p=buscaPessoa(nome);
+  if(!p){if(cadastrar)await salvar('pessoas',[{id:novoId(),nome:nome,tipo:'convidado',telefone:tel,origem:'',obs:''}]);return;}
+  if(!p.telefone&&tel)await salvar('pessoas',[{id:p.id||novoId(),nome:p.nome,tipo:p.tipo,telefone:tel,origem:p.origem||'',obs:p.obs||''}]);
 }
 
 function abrirMetas(){
@@ -958,34 +1046,31 @@ function abrirMetas(){
   abrir('Metas de visitação',form);
 }
 
-function abrirTarefas(aba){
+function abrirTarefas(){
   const corpo=h('div',{class:'form'});
-  function desenha(){
-    corpo.replaceChildren();
-    corpo.append(h('div',{class:'tabs',role:'tablist'},
-      h('button',{type:'button',role:'tab','aria-selected':aba==='tarefas'?'true':'false',onclick:()=>{aba='tarefas';desenha();}},'Tarefas'),
-      h('button',{type:'button',role:'tab','aria-selected':aba==='pauta'?'true':'false',onclick:()=>{aba='pauta';desenha();}},'Pauta da comissão')));
-    corpo.append(aba==='tarefas'?painelTarefas():painelPauta());
-  }
-  function delBtn(col,id){
+  function desenha(){corpo.replaceChildren(painelTarefas());}
+  function delBtn(id){
     let armado=false;
     const b=h('button',{class:'btn sm danger so-editor',type:'button'},'Excluir');
     b.addEventListener('click',async()=>{
       if(!armado){armado=true;b.textContent='Confirmar';setTimeout(()=>{armado=false;b.textContent='Excluir';},4000);return;}
-      if(await excluir(col,id))desenha();
+      if(await excluir('tarefas',id))desenha();
     });
     return b;
   }
   function painelTarefas(){
+    const inicial=deptoPorNome(S.depto);
     const inT=h('input',{type:'text',id:'t-tit',maxlength:'200',autocomplete:'off',required:true});
-    const inR=h('input',{type:'text',id:'t-resp',maxlength:'120',autocomplete:'off'});
+    const inR=h('input',{type:'text',id:'t-resp',maxlength:'120',autocomplete:'off',list:'dl-anc',value:inicial&&inicial.responsavel||''});
     const inP=h('input',{type:'date',id:'t-prazo'});
-    const sD=h('select',{id:'t-dep'},h('option',{value:''},'Nenhum'),DEPTOS.map(d=>h('option',{value:d[0]},d[0])));
+    const sD=h('select',{id:'t-dep',value:S.depto||''},h('option',{value:''},'Nenhum'),S.deptos.map(d=>h('option',{value:d.nome},d.nome)));
+    sD.addEventListener('change',()=>{const d=deptoPorNome(sD.value);if(d&&d.responsavel&&!inR.value.trim())inR.value=d.responsavel;});
     const f=h('form',{class:'form'},
       h('div',null,h('label',{for:'t-tit'},'O que precisa ser feito'),inT),
-      h('div',{class:'g2'},h('div',null,h('label',{for:'t-resp'},'Responsável'),inR),h('div',null,h('label',{for:'t-prazo'},'Prazo'),inP)),
+      h('div',{class:'g2'},h('div',null,h('label',{for:'t-resp'},'Ancião responsável'),inR),h('div',null,h('label',{for:'t-prazo'},'Prazo'),inP)),
       h('div',null,h('label',{for:'t-dep'},'Departamento'),sD),
-      h('div',{class:'acoes'},h('button',{class:'btn primary',type:'submit'},icone('plus',16),'Adicionar tarefa')));
+      h('div',{class:'acoes'},h('button',{class:'btn primary',type:'submit'},icone('plus',16),'Adicionar tarefa')),
+      datalist('dl-anc',listaAnciaos().map(a=>a.nome)));
     f.addEventListener('submit',async e=>{
       e.preventDefault();if(!inT.value.trim())return;
       if(await salvar('tarefas',[{id:novoId(),titulo:inT.value.trim(),resp:inR.value.trim(),prazo:inP.value,depto:sD.value,feito:false}])){toast('Tarefa adicionada');desenha();}
@@ -996,46 +1081,32 @@ function abrirTarefas(aba){
       const late=!t.feito&&t.prazo&&t.prazo<hojeIso();
       lista.append(h('div',{class:'row2'},h('div',{class:'top'},
         h('input',{type:'checkbox',checked:t.feito,disabled:!pode(),'aria-label':'Concluída: '+t.titulo,style:'width:18px;height:18px',onchange:e=>salvar('tarefas',[Object.assign({},t,{feito:e.target.checked})])}),
-        h('b',{style:t.feito?'text-decoration:line-through;color:var(--muted);font-weight:500':''},t.titulo),delBtn('tarefas',t.id)),
-        (t.resp||t.prazo||t.depto)&&h('span',{class:'muted'+(late?' late':'')},[t.resp,t.prazo&&('prazo '+fmtBR(t.prazo)),t.depto].filter(Boolean).join(' · '))));
+        h('b',{style:t.feito?'text-decoration:line-through;color:var(--muted);font-weight:500':''},t.titulo),delBtn(t.id)),
+        (t.resp||t.prazo||t.depto)?h('span',{class:'muted'+(late?' late':'')},[t.resp,t.prazo&&('prazo '+fmtBR(t.prazo)),t.depto].filter(Boolean).join(' · ')):null));
     });
     if(!todas.length)lista.append(h('p',{class:'vazio'},'Nenhuma tarefa ainda.'));
     return h('div',{class:'form'},f,lista);
   }
-  function painelPauta(){
-    const inA=h('input',{type:'text',id:'p-ass',maxlength:'200',autocomplete:'off',required:true});
-    const sC=h('select',{id:'p-cat'},PAUTA_CATS.map(c=>h('option',{value:c},c)));
-    const inO=h('input',{type:'text',id:'p-obs',maxlength:'500',autocomplete:'off'});
-    const f=h('form',{class:'form'},
-      h('div',null,h('label',{for:'p-ass'},'Assunto'),inA),
-      h('div',{class:'g2'},h('div',null,h('label',{for:'p-cat'},'Categoria'),sC),h('div',null,h('label',{for:'p-obs'},'Observação'),inO)),
-      h('div',{class:'acoes'},h('button',{class:'btn primary',type:'submit'},icone('plus',16),'Adicionar à pauta')));
-    f.addEventListener('submit',async e=>{
-      e.preventDefault();if(!inA.value.trim())return;
-      if(await salvar('pauta',[{id:novoId(),assunto:inA.value.trim(),categoria:sC.value,obs:inO.value.trim(),status:'pendente',decisao:''}])){toast('Assunto adicionado');desenha();}
-    });
-    const lista=h('div',{class:'lst'});
-    const ordem={pendente:0,discussao:1,decidido:2};
-    S.pauta.slice().sort((a,b)=>(ordem[a.status]||0)-(ordem[b.status]||0)).forEach(p=>{
-      const sel=h('select',{'aria-label':'Situação de '+p.assunto,disabled:!pode(),value:p.status||'pendente',style:'width:auto;min-width:140px',onchange:e=>salvar('pauta',[Object.assign({},p,{status:e.target.value})])},PAUTA_ST.map(s=>h('option',{value:s[0]},s[1])));
-      const dec=h('textarea',{'aria-label':'Decisão sobre '+p.assunto,disabled:!pode(),placeholder:'Decisão ou encaminhamento',value:p.decisao||'',style:'min-height:56px',onchange:e=>salvar('pauta',[Object.assign({},p,{decisao:e.target.value.trim()})])});
-      lista.append(h('div',{class:'row2'},h('div',{class:'top'},h('b',null,p.assunto),delBtn('pauta',p.id)),
-        h('span',{class:'muted'},[p.categoria,p.obs].filter(Boolean).join(' · ')),sel,dec));
-    });
-    if(!S.pauta.length)lista.append(h('p',{class:'vazio'},'A pauta está vazia.'));
-    return h('div',{class:'form'},f,lista);
-  }
   desenha();
-  abrir('Tarefas e pauta',corpo);
+  abrir('Tarefas dos departamentos',corpo);
 }
 
 function abrirEscalaTexto(){
-  const linhas=proximosSabados(8).map(d=>{
+  const linhas=[];let semAtual='';
+  diasDeCulto(hojeIso(),35).forEach(d=>{
+    const w=inicioSemana(d);
+    if(w!==semAtual){
+      semAtual=w;const aw=anciaoDaSemana(d);
+      if(linhas.length)linhas.push('');
+      linhas.push('*Semana '+fmtDM(w)+' a '+fmtDM(somaDias(w,6))+(aw?' - Ancião: '+aw:'')+'*');
+    }
     const e=S.eventos.filter(x=>x.data===d&&x.tipo==='pregacao')[0]||S.eventos.filter(x=>x.data===d&&x.tipo==='santa_ceia')[0]||{};
-    return fmtCurto(d)+(anciaoDaSemana(d)?' ['+anciaoDaSemana(d)+']':'')+' - '+(e.pessoa||'a definir')+(e.titulo&&e.titulo!=='Culto de sábado'?' - '+e.titulo:'')+(e.detalhe&&e.tipo==='pregacao'&&e.detalhe!=='Exemplo de demonstração'?' ('+e.detalhe+')':'');
+    linhas.push(fmtCurto(d)+' - '+(e.pessoa||'a definir')+(e.titulo&&!tituloGenerico(e.titulo)?' - '+e.titulo:'')
+      +(e.detalhe&&e.tipo==='pregacao'&&e.detalhe!=='Exemplo de demonstração'?' ('+e.detalhe+')':'')
+      +(e.dirigente?' | Ancião responsável: '+e.dirigente:''));
   });
-  const txt='*Escala de pregadores*\n'+linhas.join('\n');
-  const ta=h('textarea',{id:'esc-txt',readonly:true,style:'min-height:210px;font-family:ui-monospace,Menlo,monospace;font-size:13px',value:txt});
+  const txt='*Escala de cultos e pregadores*\n'+linhas.join('\n');
+  const ta=h('textarea',{id:'esc-txt',readonly:true,style:'min-height:260px;font-family:ui-monospace,Menlo,monospace;font-size:13px',value:txt});
   const corpo=h('div',{class:'form'},h('label',{for:'esc-txt'},'Texto pronto para colar no WhatsApp'),ta,
     h('div',{class:'acoes'},
       h('button',{class:'btn primary',type:'button',onclick:()=>{
@@ -1043,7 +1114,7 @@ function abrirEscalaTexto(){
         if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(txt).then(()=>toast('Escala copiada'),sel);else sel();
       }},icone('copy',16),'Copiar'),
       h('button',{class:'btn',type:'button',onclick:fechar},'Fechar')));
-  abrir('Escala de pregadores',corpo);
+  abrir('Escala de cultos e pregadores',corpo);
 }
 
 function abrirSenha(){
@@ -1076,12 +1147,42 @@ const casa = (campo,nome) => {const a=nrm(campo),b=nrm(nome);return !!a&&!!b&&(a
 function somaDias(iso,n){const d=parse(iso);d.setDate(d.getDate()+n);return isoOf(d);}
 /* A semana do rodízio vai de sábado a sexta. */
 function inicioSemana(iso){const d=parse(iso);d.setDate(d.getDate()-((d.getDay()+1)%7));return isoOf(d);}
-function anciaoDaSemana(iso){
-  const r=S.rodizio;
+function anciaoNaSemana(iso,r){
   if(!r||!r.anciaos||!r.anciaos.length||!r.inicio||!iso)return '';
   const sem=Math.round((parse(inicioSemana(iso))-parse(inicioSemana(r.inicio)))/(7*864e5));
   const n=r.anciaos.length;
   return r.anciaos[((sem%n)+n)%n];
+}
+function anciaoDaSemana(iso){return anciaoNaSemana(iso,S.rodizio);}
+const mesmo = (a,b) => !!nrm(a)&&nrm(a)===nrm(b);
+/* Chave para achar a pessoa mesmo com "Pr.", "Ancião" ou "Irmão" na frente do nome. */
+const chavePessoa = s => nrm(s).replace(/^(anciao|pastor|pastora|pr|irmao|irma|dr|dra)\.?\s+/,'');
+const deptoPorNome = n => S.deptos.find(d=>d.nome===n);
+
+/* Anciãos = quem tem login (vem do servidor) + quem foi cadastrado em Anciãos e pregadores. */
+function listaAnciaos(){
+  const mapa=new Map();
+  const base=nome=>({nome:nome,tipo:'anciao',login:false,perfil:'',id:'',telefone:'',origem:'',obs:''});
+  S.usuarios.forEach(u=>mapa.set(nrm(u.nome),Object.assign(base(u.nome),{login:true,perfil:u.perfil})));
+  if(S.usuario&&!mapa.has(nrm(S.usuario)))mapa.set(nrm(S.usuario),Object.assign(base(S.usuario),{login:true,perfil:S.perfil}));
+  S.pessoas.filter(p=>p.tipo==='anciao').forEach(p=>{
+    const k=nrm(p.nome),b=mapa.get(k)||base(p.nome);
+    mapa.set(k,Object.assign({},b,{id:p.id,telefone:p.telefone||'',origem:p.origem||'',obs:p.obs||''}));
+  });
+  return Array.from(mapa.values()).sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));
+}
+function listaConvidados(){return S.pessoas.filter(p=>p.tipo==='convidado').sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR'));}
+function nomesPessoas(){return listaAnciaos().map(a=>a.nome).concat(listaConvidados().map(c=>c.nome));}
+function buscaPessoa(nome){
+  const k=chavePessoa(nome);if(!k)return null;
+  return listaAnciaos().concat(listaConvidados()).find(p=>chavePessoa(p.nome)===k)||null;
+}
+function datalist(id,nomes){return h('datalist',{id:id},nomes.map(n=>h('option',{value:n})));}
+const soDig = s => String(s||'').replace(/\D/g,'');
+function linkWA(tel){let d=soDig(tel);if(!d)return '';if(d.length<=11)d='55'+d;return 'https://wa.me/'+d;}
+function linkTel(tel){let d=soDig(tel);if(!d)return '';if(d.length<=11)d='55'+d;return 'tel:+'+d;}
+function linksTel(tel){
+  return h('span',{class:'tel'},tel,h('a',{href:linkTel(tel)},'Ligar'),h('a',{href:linkWA(tel),target:'_blank',rel:'noopener'},'WhatsApp'));
 }
 async function salvarCfg(chave,valor){
   if(!pode()){toast('Seu acesso é somente de leitura.');return false;}
@@ -1095,110 +1196,322 @@ function copiarTexto(txt,ta){
 
 /* ---------- Cartões do painel lateral ---------- */
 function cardIndicadores(){
-  const I=S.indicadores;
-  const linha=(nm,alc,meta)=>{
+  const linha=i=>{
+    const alc=i.alc,meta=i.meta;
     const pct=meta?Math.min(100,Math.round(alc/meta*100)):(alc?100:0),cheio=meta>0&&alc>=meta;
     return h('div',{class:'vis'+(cheio?' cheio':'')},
       h('span',{class:'ck'+(cheio?' on':'')},cheio&&icone('check',13)),
-      h('span',{class:'nm'},nm),h('span',{class:'qt'},alc+' de '+meta),
-      h('div',{class:'bar',role:'progressbar','aria-valuemin':'0','aria-valuemax':String(meta),'aria-valuenow':String(alc),'aria-label':nm},h('span',{style:'width:'+pct+'%'})));
+      h('span',{class:'nm'},i.nome),h('span',{class:'qt'},alc+' de '+meta),
+      h('div',{class:'bar',role:'progressbar','aria-valuemin':'0','aria-valuemax':String(meta),'aria-valuenow':String(alc),'aria-label':i.nome},h('span',{style:'width:'+pct+'%'})));
   };
   const acao=h('button',{class:'ibtn so-editor',type:'button',title:'Editar indicadores','aria-label':'Editar indicadores',onclick:abrirIndicadores},icone('cog',18));
-  return cartao('Indicadores da Igreja','star',acao,[
-    linha('Estudos bíblicos ativos',I.estudosAlc,I.estudosMeta),
-    linha('Pequenos grupos ativos',I.gruposAlc,I.gruposMeta),
-    linha('Batismos no ano',I.batismosAlc,I.batismosMeta)]);
+  return cartao('Indicadores da Igreja','star',acao,
+    S.indicadores.length?S.indicadores.map(linha):h('p',{class:'muted'},pode()?'Nenhum indicador. Toque na engrenagem para criar.':'Nenhum indicador cadastrado.'));
 }
 function cardFerramentas(){
   const b=(ico,txt,fn)=>h('button',{class:'btn sm',type:'button',onclick:fn},icone(ico,15),txt);
   return cartao('Ferramentas do Ancionato','clip',null,h('div',{class:'tools2'},
     b('repeat','Rodízio de anciãos',()=>abrirRodizio()),
     b('users','Agenda por ancião',()=>abrirAgendaAnc()),
+    b('phone','Anciãos e pregadores',()=>abrirPessoas()),
     b('book','Liturgias',()=>abrirLiturgias()),
-    b('check','Votos batismais',()=>abrirVotos()),
     b('mic','Histórico de pregadores',()=>abrirHistorico()),
     b('file','PDF do mês',()=>pdfMes())));
 }
 
-/* ---------- Indicadores ---------- */
+/* ---------- Indicadores (criar, renomear, ajustar e remover) ---------- */
 function abrirIndicadores(){
   if(!pode()){toast('Seu acesso é somente de leitura.');return;}
-  const I=S.indicadores,campos={};
-  const rotulos=[['estudos','Estudos bíblicos ativos'],['grupos','Pequenos grupos ativos'],['batismos','Batismos no ano']];
-  const form=h('form',{class:'form'},h('p',{class:'muted'},'Informe a meta e quanto já foi alcançado.'),
-    rotulos.map(r=>h('div',null,h('p',{class:'sec-t'},r[1]),h('div',{class:'g2'},
-      h('div',null,h('label',{for:'i-'+r[0]+'A'},'Alcançado'),campos[r[0]+'Alc']=h('input',{type:'number',id:'i-'+r[0]+'A',min:'0',max:'99999',value:String(I[r[0]+'Alc']||0)})),
-      h('div',null,h('label',{for:'i-'+r[0]+'M'},'Meta'),campos[r[0]+'Meta']=h('input',{type:'number',id:'i-'+r[0]+'M',min:'0',max:'99999',value:String(I[r[0]+'Meta']||0)}))))),
-    h('div',{class:'acoes'},h('button',{class:'btn primary',type:'submit'},'Salvar'),h('button',{class:'btn',type:'button',onclick:fechar},'Cancelar')));
-  form.addEventListener('submit',async e=>{
-    e.preventDefault();
-    const v={};Object.keys(IND_PADRAO).forEach(k=>{v[k]=Math.max(0,Math.min(99999,Math.round(Number(campos[k].value)||0)));});
-    if(await salvarCfg('indicadores',v)){S.indicadores=Object.assign({},IND_PADRAO,v);render();fechar();toast('Indicadores salvos');}
+  const lista=S.indicadores.map(i=>Object.assign({},i));
+  const area=h('div',{class:'form'});
+  const num=v=>Math.max(0,Math.min(99999,Math.round(Number(v)||0)));
+  function desenha(){
+    area.replaceChildren();
+    if(!lista.length)area.append(h('p',{class:'vazio'},'Nenhum indicador. Toque em Adicionar indicador.'));
+    lista.forEach((it,idx)=>{
+      area.append(h('div',{class:'row2'},
+        h('div',{class:'top'},
+          h('input',{type:'text',maxlength:'60',list:'dl-ind','aria-label':'Nome do indicador',placeholder:'Nome do indicador',value:it.nome,oninput:e=>{it.nome=e.target.value;}}),
+          h('button',{class:'ibtn',type:'button','aria-label':'Remover '+(it.nome||'indicador'),title:'Remover',onclick:()=>{lista.splice(idx,1);desenha();}},icone('x',16))),
+        h('div',{class:'g2'},
+          h('div',null,h('label',null,'Alcançado'),h('input',{type:'number',min:'0',max:'99999',inputmode:'numeric',value:it.alc,oninput:e=>{it.alc=num(e.target.value);}})),
+          h('div',null,h('label',null,'Meta'),h('input',{type:'number',min:'0',max:'99999',inputmode:'numeric',value:it.meta,oninput:e=>{it.meta=num(e.target.value);}})))));
+    });
+  }
+  desenha();
+  const salvarBtn=h('button',{class:'btn primary',type:'button'},'Salvar');
+  salvarBtn.addEventListener('click',async()=>{
+    const v=lista.filter(i=>i.nome.trim()).map(i=>({id:i.id||novoId(),nome:i.nome.trim(),meta:num(i.meta),alc:num(i.alc)}));
+    if(v.length>20){toast('Use no máximo 20 indicadores.');return;}
+    salvarBtn.disabled=true;
+    if(await salvarCfg('indicadores',v)){S.indicadores=v;render();fechar();toast('Indicadores salvos');}
+    else salvarBtn.disabled=false;
   });
-  abrir('Indicadores da igreja',form);
+  abrir('Indicadores da igreja',h('div',{class:'form'},
+    h('p',{class:'muted'},'Ajuste o que já foi alcançado e a meta de cada indicador. Você pode renomear, remover e criar outros.'),
+    area,
+    h('div',{class:'acoes'},
+      h('button',{class:'btn',type:'button',onclick:()=>{if(lista.length>=20){toast('Limite de 20 indicadores.');return;}lista.push({id:novoId(),nome:'',meta:0,alc:0});desenha();}},icone('plus',15),'Adicionar indicador')),
+    h('div',{class:'acoes'},salvarBtn,h('button',{class:'btn',type:'button',onclick:fechar},'Cancelar')),
+    datalist('dl-ind',IND_SUGESTOES)));
+}
+
+/* ---------- Departamentos: quem promove e quem apoia ---------- */
+function abrirDeptos(){
+  if(!pode()){toast('Seu acesso é somente de leitura.');return;}
+  const anc=listaAnciaos().map(a=>a.nome);
+  const trab=S.deptos.map(d=>({nome:d.nome,cor:d.cor,responsavel:d.responsavel,apoio:d.apoio.slice()}));
+  const abertos=new Set();
+  const area=h('div',{class:'form'});
+  function desenha(){
+    area.replaceChildren();
+    if(!anc.length)area.append(h('p',{class:'muted'},'Ainda não há anciãos cadastrados. Crie o login de cada ancião (Code.gs) ou cadastre em Anciãos e pregadores.'));
+    trab.forEach((d,idx)=>{
+      const opcoes=anc.slice();if(d.responsavel&&!opcoes.some(n=>mesmo(n,d.responsavel)))opcoes.push(d.responsavel);
+      const sel=h('select',{'aria-label':'Ancião responsável por '+d.nome,value:d.responsavel,
+        onchange:e=>{d.responsavel=e.target.value;d.apoio=d.apoio.filter(n=>!mesmo(n,d.responsavel));desenha();}},
+        h('option',{value:''},'Sem responsável'),opcoes.map(n=>h('option',{value:n},n)));
+      const apoioOpc=anc.filter(n=>!mesmo(n,d.responsavel));
+      d.apoio.forEach(n=>{if(!apoioOpc.some(o=>mesmo(o,n)))apoioOpc.push(n);});
+      const apoio=h('div',{class:'apoio'},apoioOpc.map(n=>h('label',{class:'check'},
+        h('input',{type:'checkbox',checked:d.apoio.some(a=>mesmo(a,n)),onchange:e=>{
+          d.apoio=d.apoio.filter(a=>!mesmo(a,n));if(e.target.checked)d.apoio.push(n);desenha();}}),n)));
+      let armado=false;
+      const bRem=h('button',{class:'btn sm danger',type:'button'},'Remover departamento');
+      bRem.addEventListener('click',()=>{
+        if(!armado){armado=true;bRem.textContent='Confirmar remoção';setTimeout(()=>{armado=false;bRem.textContent='Remover departamento';},4000);return;}
+        if(trab.length<=1){toast('Mantenha pelo menos um departamento.');return;}
+        trab.splice(idx,1);desenha();
+      });
+      const resumo=(d.responsavel||'sem responsável')+(d.apoio.length?' · +'+d.apoio.length+' apoio':'');
+      const det=h('details',{class:'dd',style:'--c:'+d.cor},
+        h('summary',null,h('span',{class:'dot'}),d.nome,h('span',{class:'resumo'},resumo)),
+        h('div',{class:'dd-b'},
+          h('div',null,h('label',null,'Ancião que promove o departamento'),sel),
+          h('div',null,h('label',null,'Anciãos que apoiam'),apoioOpc.length?apoio:h('p',{class:'muted'},'Nenhum outro ancião disponível.')),
+          h('div',{class:'acoes'},h('label',{class:'check'},'Cor ',h('input',{type:'color',value:d.cor,'aria-label':'Cor de '+d.nome,onchange:e=>{d.cor=e.target.value;det.style.setProperty('--c',d.cor);}})),bRem)));
+      if(abertos.has(d.nome))det.setAttribute('open','');
+      det.addEventListener('toggle',()=>{if(det.open)abertos.add(d.nome);else abertos.delete(d.nome);});
+      area.append(det);
+    });
+  }
+  desenha();
+  const inNovo=h('input',{type:'text',maxlength:'60',placeholder:'Nome do novo departamento','aria-label':'Nome do novo departamento'});
+  const btnAdd=h('button',{class:'btn',type:'button'},icone('plus',15),'Adicionar');
+  btnAdd.addEventListener('click',()=>{
+    const n=inNovo.value.trim();if(!n)return;
+    if(trab.some(d=>mesmo(d.nome,n))){toast('Esse departamento já existe.');return;}
+    if(trab.length>=40){toast('Limite de 40 departamentos.');return;}
+    trab.push({nome:n,cor:PALETA[trab.length%PALETA.length],responsavel:'',apoio:[]});inNovo.value='';abertos.add(n);desenha();
+  });
+  const btnPadrao=h('button',{class:'btn sm',type:'button'},'Incluir os departamentos padrão que faltam');
+  btnPadrao.addEventListener('click',()=>{
+    let n=0;DEPTOS_PADRAO.forEach(p=>{if(!trab.some(d=>mesmo(d.nome,p[0]))&&trab.length<40){trab.push({nome:p[0],cor:p[1],responsavel:'',apoio:[]});n++;}});
+    desenha();toast(n?n+' departamento'+(n>1?'s':'')+' incluído'+(n>1?'s':''):'Todos os padrões já estão na lista.');
+  });
+  const salvarBtn=h('button',{class:'btn primary',type:'button'},'Salvar departamentos');
+  salvarBtn.addEventListener('click',async()=>{
+    salvarBtn.disabled=true;
+    if(await salvarCfg('deptos',trab)){S.deptos=trab.map(normDepto);if(S.depto&&!deptoPorNome(S.depto))S.depto='';render();fechar();toast('Departamentos salvos');}
+    else salvarBtn.disabled=false;
+  });
+  abrir('Departamentos e anciãos',h('div',{class:'form'},
+    h('p',{class:'muted'},'Defina o ancião que promove cada departamento e quem o apoia. Essa informação aparece no cartão, nos eventos, nas tarefas e na agenda de cada ancião.'),
+    area,
+    h('div',{class:'g2'},inNovo,btnAdd),
+    h('div',{class:'acoes'},btnPadrao),
+    h('div',{class:'acoes'},salvarBtn,h('button',{class:'btn',type:'button',onclick:fechar},'Cancelar'))));
 }
 
 /* ---------- Rodízio de anciãos ---------- */
 function abrirRodizio(){
   const r=S.rodizio;
-  const prev=h('div',{class:'lst'});
-  if(r.anciaos.length&&r.inicio){
-    const ini=inicioSemana(hojeIso());
+  let ordem=(r.anciaos||[]).slice();
+  const inIni=h('input',{type:'date',id:'r-inicio',value:r.inicio||inicioSemana(hojeIso())});
+  const prev=h('div',{class:'lst'}),lista=h('div',{class:'form'});
+  function atualizaPrev(){
+    prev.replaceChildren();
+    if(!ordem.length||!inIni.value){prev.append(h('p',{class:'muted'},'O rodízio ainda não foi configurado.'));return;}
+    const rod={anciaos:ordem,inicio:inIni.value},ini=inicioSemana(hojeIso());
     for(let i=0;i<8;i++){const a=somaDias(ini,i*7);
-      prev.append(h('div',{class:'ln'},h('b',null,fmtDM(a)+' a '+fmtDM(somaDias(a,6))),h('span',null,anciaoDaSemana(a)+(i===0?' (esta semana)':''))));}
-  }else prev.append(h('p',{class:'muted'},'O rodízio ainda não foi configurado.'));
-  const lista=h('textarea',{id:'r-lista',rows:'5',placeholder:'Um nome por linha, na ordem do rodízio',value:r.anciaos.join('\n')});
-  const ini=h('input',{type:'date',id:'r-inicio',value:r.inicio||''});
-  const f=h('form',{class:'form'},
-    h('div',null,h('label',{for:'r-lista'},'Anciãos, na ordem do rodízio'),lista),
-    h('div',null,h('label',{for:'r-inicio'},'Um dia da semana em que o primeiro da lista é o responsável'),ini),
-    h('p',{class:'muted'},'Cada semana vai de sábado a sexta. Depois do último da lista, o rodízio volta ao primeiro.'),
-    h('div',{class:'acoes'},h('button',{class:'btn primary',type:'submit'},'Salvar rodízio'),h('button',{class:'btn',type:'button',onclick:fechar},'Fechar')));
-  f.addEventListener('submit',async e=>{
-    e.preventDefault();
-    const nomes=lista.value.split('\n').map(s=>s.trim()).filter(Boolean).slice(0,30);
-    if(!nomes.length){toast('Escreva pelo menos um nome.');return;}
-    if(!ini.value){toast('Escolha a data de início.');return;}
-    const v={anciaos:nomes,inicio:ini.value};
+      prev.append(h('div',{class:'ln'},h('b',null,fmtDM(a)+' a '+fmtDM(somaDias(a,6))),h('span',null,anciaoNaSemana(a,rod)+(i===0?' (esta semana)':''))));}
+  }
+  function mover(i,d){const j=i+d;if(j<0||j>=ordem.length)return;const t=ordem[i];ordem[i]=ordem[j];ordem[j]=t;atualizaLista();}
+  function atualizaLista(){
+    lista.replaceChildren();
+    lista.append(h('p',{class:'sec-t'},'Ordem do rodízio'));
+    if(!ordem.length)lista.append(h('p',{class:'muted'},'Ninguém no rodízio ainda. Inclua os anciãos abaixo.'));
+    ordem.forEach((n,i)=>lista.append(h('div',{class:'row2'},h('div',{class:'top'},h('b',null,(i+1)+'. '+n),
+      h('button',{class:'ibtn',type:'button','aria-label':'Subir '+n,disabled:i===0,onclick:()=>mover(i,-1)},icone('up',16)),
+      h('button',{class:'ibtn',type:'button','aria-label':'Descer '+n,disabled:i===ordem.length-1,onclick:()=>mover(i,1)},icone('down',16)),
+      h('button',{class:'ibtn',type:'button','aria-label':'Tirar '+n+' do rodízio',onclick:()=>{ordem.splice(i,1);atualizaLista();}},icone('x',16))))));
+    const fora=listaAnciaos().map(a=>a.nome).filter(n=>!ordem.some(o=>mesmo(o,n)));
+    if(fora.length){
+      lista.append(h('p',{class:'sec-t'},'Anciãos fora do rodízio'));
+      fora.forEach(n=>lista.append(h('div',{class:'row2'},h('div',{class:'top'},h('b',null,n),
+        h('button',{class:'btn sm',type:'button',onclick:()=>{ordem.push(n);atualizaLista();}},icone('plus',14),'Incluir')))));
+      if(!ordem.length)lista.append(h('button',{class:'btn',type:'button',onclick:()=>{ordem=fora.slice();atualizaLista();}},'Incluir todos, em ordem alfabética'));
+    }
+    const inNome=h('input',{type:'text',maxlength:'80',placeholder:'Outro nome (sem cadastro)','aria-label':'Outro nome para o rodízio'});
+    lista.append(h('div',{class:'g2'},inNome,h('button',{class:'btn',type:'button',onclick:()=>{
+      const n=inNome.value.trim();if(!n)return;
+      if(ordem.some(o=>mesmo(o,n))){toast('Esse nome já está no rodízio.');return;}
+      ordem.push(n);atualizaLista();}},icone('plus',15),'Adicionar nome')));
+    atualizaPrev();
+  }
+  inIni.addEventListener('change',atualizaPrev);
+  const salvarBtn=h('button',{class:'btn primary',type:'button'},'Salvar rodízio');
+  salvarBtn.addEventListener('click',async()=>{
+    if(!ordem.length){toast('Inclua pelo menos um ancião.');return;}
+    if(!inIni.value){toast('Escolha a data de início.');return;}
+    const v={anciaos:ordem.slice(0,30),inicio:inIni.value};
+    salvarBtn.disabled=true;
     if(await salvarCfg('rodizio',v)){S.rodizio=v;render();fechar();toast('Rodízio salvo');}
+    else salvarBtn.disabled=false;
   });
-  abrir('Rodízio de anciãos',h('div',{class:'form'},h('p',{class:'sec-t'},'Próximas semanas'),prev,f));
+  atualizaLista();
+  abrir('Rodízio de anciãos',h('div',{class:'form'},
+    h('p',{class:'sec-t'},'Próximas semanas'),prev,
+    h('div',{class:'form so-editor'},lista,
+      h('div',null,h('label',{for:'r-inicio'},'Semana em que o 1º da lista é o responsável (informe qualquer dia dela)'),inIni),
+      h('p',{class:'muted'},'Cada semana vai de sábado a sexta. Depois do último da lista, volta ao primeiro.'),
+      h('div',{class:'acoes'},salvarBtn)),
+    h('div',{class:'acoes'},h('button',{class:'btn',type:'button',onclick:fechar},'Fechar'))));
 }
 
 /* ---------- Agenda por ancião ---------- */
 function abrirAgendaAnc(){
   const nomes=[];
   const add=n=>{n=String(n||'').trim();if(n&&!nomes.some(x=>nrm(x)===nrm(n)))nomes.push(n);};
-  S.rodizio.anciaos.forEach(add);
-  if(!nomes.length)S.eventos.forEach(e=>add(e.dirigente));
-  if(!nomes.length){abrir('Agenda por ancião',h('p',{class:'vazio'},'Configure o rodízio ou informe dirigentes nos cultos para ver a agenda de cada ancião.'));return;}
-  const proprio=nomes.find(n=>nrm(n)===nrm(S.usuario))||nomes[0];
+  listaAnciaos().forEach(a=>add(a.nome));
+  (S.rodizio.anciaos||[]).forEach(add);
+  if(!nomes.length){abrir('Agenda por ancião',h('p',{class:'vazio'},'Nenhum ancião cadastrado ainda. Crie o login de cada ancião ou cadastre em Anciãos e pregadores.'));return;}
+  const proprio=nomes.find(n=>mesmo(n,S.usuario))||nomes[0];
   const sel=h('select',{id:'ag-sel','aria-label':'Ancião',value:proprio},nomes.map(n=>h('option',{value:n},n)));
   const area=h('div',{class:'form'});
   function desenha(){
     area.replaceChildren();
-    const nome=sel.value,hoje=hojeIso();
+    const nome=sel.value,hoje=hojeIso(),pes=buscaPessoa(nome);
+    const promove=S.deptos.filter(d=>mesmo(d.responsavel,nome)).map(d=>d.nome);
+    const apoia=S.deptos.filter(d=>d.apoio.some(n=>mesmo(n,nome))).map(d=>d.nome);
     const semanas=[],ini=inicioSemana(hoje);
-    for(let i=0;i<26&&semanas.length<6;i++){const a=somaDias(ini,i*7);if(casa(anciaoDaSemana(a),nome))semanas.push(a);}
-    const papel=e=>[casa(e.dirigente,nome)&&'Dirigente',casa(e.pessoa,nome)&&tipoDe(e).pessoa].filter(Boolean).join(' e ');
+    for(let i=0;i<26&&semanas.length<6;i++){const a=somaDias(ini,i*7);if(mesmo(anciaoDaSemana(a),nome)||casa(anciaoDaSemana(a),nome))semanas.push(a);}
+    const papel=e=>[casa(e.dirigente,nome)&&'Ancião responsável',casa(e.pessoa,nome)&&tipoDe(e).pessoa,
+      promove.indexOf(e.depto)>=0&&('Promove '+e.depto),apoia.indexOf(e.depto)>=0&&('Apoia '+e.depto)].filter(Boolean).join(' · ');
     const linha=e=>h('div',{class:'ln'},h('b',null,fmtCurto(e.data)),h('span',null,(e.titulo||tipoDe(e).nome)+' ('+papel(e)+')'));
-    const meus=S.eventos.filter(e=>casa(e.pessoa,nome)||casa(e.dirigente,nome)).sort(ordemEv);
+    const meus=S.eventos.filter(e=>casa(e.pessoa,nome)||casa(e.dirigente,nome)||(e.depto&&(promove.indexOf(e.depto)>=0||apoia.indexOf(e.depto)>=0))).sort(ordemEv);
     const prox=meus.filter(e=>e.data>=hoje).slice(0,12),pass=meus.filter(e=>e.data<hoje).slice(-5).reverse();
+    const tarefas=S.tarefas.filter(t=>!t.feito&&(mesmo(t.resp,nome)||(t.depto&&(promove.indexOf(t.depto)>=0||apoia.indexOf(t.depto)>=0)))).sort((a,b)=>(a.prazo||'9999').localeCompare(b.prazo||'9999'));
     const visitas=S.eventos.filter(e=>e.tipo==='visita'&&e.status==='feito'&&doMes(e)&&casa(e.pessoa,nome)).length;
-    area.append(
-      h('p',{class:'sec-t'},'Semanas como ancião responsável'),
+    const poe=(...ks)=>ks.forEach(k=>{if(k!=null&&k!==false)area.append(k);});
+    poe(
+      pes&&pes.telefone?h('p',{class:'muted'},'Contato: ',linksTel(pes.telefone)):null,
+      h('p',{class:'sec-t'},'Departamentos'),
+      (promove.length||apoia.length)?h('div',{class:'lst'},
+        promove.length?h('div',{class:'ln'},h('b',null,'Promove'),h('span',null,promove.join(', '))):null,
+        apoia.length?h('div',{class:'ln'},h('b',null,'Apoia'),h('span',null,apoia.join(', '))):null)
+        :h('p',{class:'muted'},'Nenhum departamento atribuído. Use a engrenagem do cartão Cuidado dos Departamentos.'),
+      h('p',{class:'sec-t'},'Semanas como ancião da semana'),
       semanas.length?h('div',{class:'lst'},semanas.map(a=>h('div',{class:'ln'},h('b',null,fmtDM(a)+' a '+fmtDM(somaDias(a,6))),h('span',null,a===ini?'esta semana':'')))):h('p',{class:'muted'},S.rodizio.anciaos.length?'Nenhuma nas próximas semanas.':'Sem rodízio configurado.'),
       h('p',{class:'sec-t'},'Próximos compromissos'),
-      prox.length?h('div',{class:'lst'},prox.map(linha)):h('p',{class:'muted'},'Nada marcado em seu nome.'),
-      pass.length&&h('p',{class:'sec-t'},'Últimos realizados'),
-      pass.length&&h('div',{class:'lst'},pass.map(linha)),
+      prox.length?h('div',{class:'lst'},prox.map(linha)):h('p',{class:'muted'},'Nada marcado em seu nome ou nos seus departamentos.'),
+      h('p',{class:'sec-t'},'Tarefas em aberto'),
+      tarefas.length?h('div',{class:'lst'},tarefas.slice(0,10).map(t=>h('div',{class:'ln'},h('b',null,t.prazo?fmtDM(t.prazo):'sem prazo'),h('span',{class:t.prazo&&t.prazo<hoje?'late':''},t.titulo+(t.depto?' ('+t.depto+')':''))))):h('p',{class:'muted'},'Nenhuma tarefa em aberto.'),
+      pass.length?h('p',{class:'sec-t'},'Últimos realizados'):null,
+      pass.length?h('div',{class:'lst'},pass.map(linha)):null,
       h('p',{class:'muted'},'Visitas registradas neste mês: '+visitas));
   }
   sel.addEventListener('change',desenha);desenha();
   abrir('Agenda por ancião',h('div',{class:'form'},h('div',null,h('label',{for:'ag-sel'},'Ancião'),sel),area));
 }
 
-/* ---------- Liturgias e votos batismais ---------- */
+/* ---------- Anciãos e pregadores convidados (com telefone) ---------- */
+function abrirPessoas(aba){
+  aba=aba||'anciao';
+  const corpo=h('div',{class:'form'});
+  function contato(p){return p.telefone?h('span',{class:'muted tel'},linksTel(p.telefone)):h('span',{class:'muted'},'Sem telefone cadastrado');}
+  function desenha(){
+    corpo.replaceChildren(
+      h('div',{class:'tabs',role:'tablist'},
+        h('button',{type:'button',role:'tab','aria-selected':aba==='anciao'?'true':'false',onclick:()=>{aba='anciao';desenha();}},'Anciãos'),
+        h('button',{type:'button',role:'tab','aria-selected':aba==='convidado'?'true':'false',onclick:()=>{aba='convidado';desenha();}},'Pregadores convidados')),
+      aba==='anciao'?painelAnciaos():painelConvidados());
+  }
+  function painelAnciaos(){
+    const box=h('div',{class:'lst'});
+    const todos=listaAnciaos();
+    todos.forEach(a=>{
+      const promove=S.deptos.filter(d=>mesmo(d.responsavel,a.nome)).map(d=>d.nome);
+      const apoia=S.deptos.filter(d=>d.apoio.some(n=>mesmo(n,a.nome))).map(d=>d.nome);
+      box.append(h('div',{class:'row2'},
+        h('div',{class:'top'},h('b',null,a.nome),a.login?h('span',{class:'tag'},a.perfil==='leitor'?'Login · leitor':'Login'):null,
+          h('button',{class:'btn sm so-editor',type:'button',onclick:()=>formPessoa(a)},'Editar')),
+        contato(a),
+        promove.length?h('span',{class:'muted'},'Promove: '+promove.join(', ')):null,
+        apoia.length?h('span',{class:'muted'},'Apoia: '+apoia.join(', ')):null,
+        a.obs?h('span',{class:'muted'},a.obs):null));
+    });
+    if(!todos.length)box.append(h('p',{class:'vazio'},'Nenhum ancião ainda.'));
+    return h('div',{class:'form'},
+      h('p',{class:'muted'},'Quem tem login aparece aqui automaticamente. Para um ancião que ainda não tem login, use Adicionar.'),
+      box,
+      h('div',{class:'acoes'},h('button',{class:'btn so-editor',type:'button',onclick:()=>formPessoa({tipo:'anciao'})},icone('plus',16),'Adicionar ancião'),
+        h('button',{class:'btn',type:'button',onclick:fechar},'Fechar')));
+  }
+  function painelConvidados(){
+    const box=h('div',{class:'lst'});
+    const todos=listaConvidados();
+    todos.forEach(c=>box.append(h('div',{class:'row2'},
+      h('div',{class:'top'},h('b',null,c.nome),h('button',{class:'btn sm so-editor',type:'button',onclick:()=>formPessoa(c)},'Editar')),
+      contato(c),c.origem?h('span',{class:'muted'},c.origem):null,c.obs?h('span',{class:'muted'},c.obs):null)));
+    if(!todos.length)box.append(h('p',{class:'vazio'},'Nenhum pregador convidado cadastrado.'));
+    return h('div',{class:'form'},
+      h('p',{class:'muted'},'Pregadores de fora da igreja. Os nomes aparecem como sugestão ao marcar uma pregação, e o telefone fica à mão para confirmar o convite.'),
+      box,
+      h('div',{class:'acoes'},h('button',{class:'btn primary so-editor',type:'button',onclick:()=>formPessoa({tipo:'convidado'})},icone('plus',16),'Cadastrar pregador convidado'),
+        h('button',{class:'btn',type:'button',onclick:fechar},'Fechar')));
+  }
+  function formPessoa(base){
+    if(!pode()){toast('Seu acesso é somente de leitura.');return;}
+    const conv=base.tipo==='convidado';
+    const inNome=h('input',{type:'text',id:'p-nome',maxlength:'80',autocomplete:'off',required:true,value:base.nome||'',disabled:!!base.login});
+    const inTel=h('input',{type:'tel',id:'p-tel',maxlength:'25',autocomplete:'off',placeholder:'(69) 9 0000-0000',value:base.telefone||''});
+    const inOri=h('input',{type:'text',id:'p-ori',maxlength:'100',autocomplete:'off',value:base.origem||'',placeholder:'Igreja, distrito ou cidade'});
+    const inObs=h('textarea',{id:'p-obs',maxlength:'300',value:base.obs||'',style:'min-height:60px'});
+    const salvarBtn=h('button',{class:'btn primary',type:'submit'},'Salvar');
+    const acoes=h('div',{class:'acoes'},salvarBtn,h('button',{class:'btn',type:'button',onclick:()=>abrirPessoas(base.tipo)},'Voltar'));
+    if(base.id&&!base.login){
+      let armado=false;
+      const bd=h('button',{class:'btn danger',type:'button'},'Excluir');
+      bd.addEventListener('click',async()=>{
+        if(!armado){armado=true;bd.textContent='Confirmar exclusão';setTimeout(()=>{armado=false;bd.textContent='Excluir';},4000);return;}
+        if(await excluir('pessoas',base.id)){toast('Cadastro excluído');abrirPessoas(base.tipo);}
+      });
+      acoes.append(bd);
+    }
+    const f=h('form',{class:'form'},
+      h('div',null,h('label',{for:'p-nome'},base.login?'Nome (vem do login)':'Nome'),inNome),
+      h('div',null,h('label',{for:'p-tel'},'Telefone ou WhatsApp'),inTel),
+      conv?h('div',null,h('label',{for:'p-ori'},'Igreja ou distrito de origem'),inOri):null,
+      h('div',null,h('label',{for:'p-obs'},conv?'Observações (temas, disponibilidade)':'Observações'),inObs),acoes);
+    f.addEventListener('submit',async e=>{
+      e.preventDefault();
+      const nome=(base.login?base.nome:inNome.value).trim();
+      if(!nome){toast('Escreva o nome.');return;}
+      const igual=S.pessoas.some(p=>p.id!==base.id&&p.tipo===base.tipo&&mesmo(p.nome,nome))||(!base.id&&!base.login&&base.tipo==='anciao'&&listaAnciaos().some(a=>mesmo(a.nome,nome)));
+      if(igual){toast('Já existe um cadastro com esse nome.');return;}
+      salvarBtn.disabled=true;
+      if(await salvar('pessoas',[{id:base.id||novoId(),nome:nome,tipo:base.tipo,telefone:inTel.value.trim(),origem:conv?inOri.value.trim():'',obs:inObs.value.trim()}])){
+        toast('Cadastro salvo');abrirPessoas(base.tipo);
+      }else salvarBtn.disabled=false;
+    });
+    abrir(conv?(base.id?'Editar pregador convidado':'Novo pregador convidado'):(base.id||base.login?'Editar ancião':'Novo ancião'),f);
+  }
+  desenha();
+  abrir('Anciãos e pregadores',corpo);
+}
+
+/* ---------- Liturgias ---------- */
 function litAtual(){const o=S.liturgias||{};return {sabado:o.sabado||LIT_PADRAO.sabado,domingo:o.domingo||LIT_PADRAO.domingo,quarta:o.quarta||LIT_PADRAO.quarta};}
 function abrirLiturgias(aba){
   aba=aba||'sabado';
@@ -1235,15 +1548,6 @@ function abrirLiturgias(aba){
   desenha();
   abrir('Liturgias dos cultos',corpo);
 }
-function abrirVotos(){
-  abrir('Votos batismais',h('div',{class:'form'},
-    h('p',{class:'muted'},'Texto de apoio para o momento do batismo. Confira a redação oficial no Manual da Igreja.'),
-    h('ol',{class:'votos'},VOTOS.map(v=>h('li',null,v))),
-    h('div',{class:'acoes'},
-      h('button',{class:'btn',type:'button',onclick:()=>copiarTexto('*Votos batismais*\n'+VOTOS.map((v,i)=>(i+1)+'. '+v).join('\n'))},icone('copy',15),'Copiar'),
-      h('button',{class:'btn',type:'button',onclick:fechar},'Fechar'))));
-}
-
 /* ---------- Histórico de pregadores ---------- */
 function abrirHistorico(){
   const todos=S.eventos.filter(e=>e.tipo==='pregacao'&&e.pessoa);
@@ -1292,14 +1596,14 @@ function pdfMes(){
   const lista=S.eventos.filter(doMes).sort(ordemEv);
   if(!lista.length){toast('Nenhum evento em '+MESES[m]+'.');return;}
   gerarPDF('Agenda de '+MESES[m]+' '+ano,'Eventos do mês',
-    ['Data','Dia','Hora','Tipo','Título','Responsável','Dirigente','Ancião da semana','Situação'],
+    ['Data','Dia','Hora','Tipo','Título','Responsável','Ancião responsável','Ancião da semana','Situação'],
     lista.map(e=>[fmtBR(e.data),DIAS_C[parse(e.data).getDay()],e.hora||'',tipoDe(e).nome,e.titulo||'',e.pessoa||'',e.dirigente||'',anciaoDaSemana(e.data)||'',ROT_ST[e.status]||'']),
     'agenda-'+ano+'-'+pad(m+1)+'.pdf');
 }
 
 /* ---------- Alertas ---------- */
 function calcAlertas(){
-  const out=[],hoje=hojeIso(),lim2=somaDias(hoje,2),lim14=somaDias(hoje,14);
+  const out=[],hoje=hojeIso(),lim2=somaDias(hoje,2),lim21=somaDias(hoje,21);
   const sem=inicioSemana(hoje),aw=anciaoDaSemana(hoje);
   if(aw){
     out.push({nivel:'info',txt:'Ancião da semana: '+aw+' (até sex '+fmtDM(somaDias(sem,6))+').'});
@@ -1309,16 +1613,20 @@ function calcAlertas(){
   S.eventos.filter(e=>e.data>=hoje&&e.data<=lim2).sort(ordemEv).forEach(e=>{
     out.push({nivel:'info',txt:(e.data===hoje?'Hoje':e.data===somaDias(hoje,1)?'Amanhã':fmtCurto(e.data))+': '+(e.titulo||tipoDe(e).nome)+(e.hora?' às '+e.hora:'')+'.'});
   });
-  S.eventos.filter(e=>(e.tipo==='pregacao'||e.tipo==='santa_ceia')&&e.status==='a_confirmar'&&e.data>=hoje&&e.data<=lim14).sort(ordemEv).forEach(e=>{
+  /* pregador ainda não confirmado (qualquer dia de culto) */
+  S.eventos.filter(e=>(e.tipo==='pregacao'||e.tipo==='santa_ceia')&&e.status==='a_confirmar'&&e.data>=hoje&&e.data<=lim21).sort(ordemEv).forEach(e=>{
     out.push({nivel:'warn',txt:'Confirmar o culto de '+fmtCurto(e.data)+(e.pessoa?' com '+e.pessoa:'')+'.'});
   });
-  proximosSabados(3).forEach(s=>{
-    if(!S.eventos.some(e=>e.data===s&&e.tipo==='pregacao'&&e.pessoa))out.push({nivel:'warn',txt:'Sábado '+fmtDM(s)+' sem pregador definido.'});
+  /* culto sem pregador: sábado, domingo e quarta-feira das próximas 3 semanas */
+  diasDeCulto(hoje,21).forEach(s=>{
+    if(!pregadorDo(s))out.push({nivel:'warn',txt:'Culto de '+CULTOS_DIA[parse(s).getDay()]+' ('+fmtDM(s)+') sem pregador definido.'});
   });
   S.tarefas.filter(t=>!t.feito&&t.prazo).sort((a,b)=>a.prazo.localeCompare(b.prazo)).forEach(t=>{
     if(t.prazo<hoje)out.push({nivel:'bad',txt:'Tarefa vencida em '+fmtDM(t.prazo)+': '+t.titulo+(t.resp?' ('+t.resp+')':'')+'.'});
     else if(t.prazo<=somaDias(hoje,3))out.push({nivel:'warn',txt:'Tarefa vence em '+fmtDM(t.prazo)+': '+t.titulo+(t.resp?' ('+t.resp+')':'')+'.'});
   });
+  const semResp=S.deptos.filter(d=>!d.responsavel).length;
+  if(semResp)out.push({nivel:'info',txt:semResp+(semResp>1?' departamentos estão':' departamento está')+' sem ancião responsável.'});
   return out;
 }
 function updateSino(){
