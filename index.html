@@ -700,7 +700,39 @@ function renderFiltro(){
 }
 
 /* ---------- Calendário ---------- */
+/* Tarefas com prazo entram no calendário somente quando um departamento está selecionado. */
+function tarefasCal(){
+  if(!S.depto)return [];
+  const q=S.busca.trim().toLowerCase();
+  return S.tarefas.filter(t=>t.prazo&&t.depto===S.depto&&(!q||[t.titulo,t.resp,t.depto].join(' ').toLowerCase().indexOf(q)>=0))
+    .map(t=>({_tarefa:true,id:'tarefa-'+t.id,tarefaId:t.id,data:t.prazo,hora:'',titulo:t.titulo,pessoa:t.resp||'',depto:t.depto,feito:!!t.feito,status:t.feito?'feito':'planejado'}));
+}
+const itensCal=()=>S.eventos.filter(visivel).concat(tarefasCal());
+function abrirItem(ev){
+  if(ev._tarefa){abrirTarefaVer(ev);return;}
+  abrirVer(ev);
+}
+function abrirTarefaVer(ev){
+  const t=S.tarefas.find(x=>x.id===ev.tarefaId);if(!t){abrirTarefas();return;}
+  const dep=deptoPorNome(t.depto);
+  const dl=h('dl');
+  [['Prazo',fmtBR(t.prazo)],['Ancião responsável',t.resp],['Departamento',t.depto],['Ancião do departamento',dep&&dep.responsavel],
+   ['Apoio do departamento',dep&&dep.apoio.length?dep.apoio.join(', '):''],['Situação',t.feito?'Concluída':'Em aberto']].filter(l=>l[1]).forEach(l=>dl.append(h('dt',null,l[0]),h('dd',null,l[1])));
+  abrir('Tarefa do departamento',h('div',{class:'ver',style:'--c:'+corDepto(t.depto)},
+    h('div',{class:'ver-h'},h('span',{class:'ico'},icone('clip',20)),h('div',null,h('b',null,t.titulo),h('span',null,'Tarefa'))),dl,
+    h('div',{class:'acoes'},
+      h('button',{class:'btn primary so-editor',type:'button',onclick:async()=>{if(await salvar('tarefas',[Object.assign({},t,{feito:!t.feito})]))fechar();}},t.feito?'Reabrir tarefa':'Marcar como concluída'),
+      h('button',{class:'btn',type:'button',onclick:()=>abrirTarefas()},'Ver todas as tarefas'),
+      h('button',{class:'btn',type:'button',onclick:fechar},'Fechar'))));
+}
 function chip(ev){
+  if(ev._tarefa){
+    const c=corDepto(ev.depto),sub=ev.pessoa;
+    return h('button',{class:'chip'+(ev.feito?'':' pend'),type:'button',style:'--c:'+c,title:'Tarefa: '+ev.titulo+(sub?' — '+sub:'')+(ev.feito?' (concluída)':''),
+      onclick:e=>{e.stopPropagation();abrirItem(ev);}},
+      h('span',{class:'ct'},h('b',{style:ev.feito?'text-decoration:line-through':''},ev.titulo),h('i',null,'Tarefa'+(sub?' · '+sub:''))),
+      ev.feito&&icone('check',13),icone('clip',15));
+  }
   const t=tipoDe(ev);
   const pend=ev.status==='a_confirmar';
   const ok=ev.status==='confirmado'||ev.status==='feito';
@@ -717,7 +749,7 @@ function renderCalendario(){
   let dias=[];for(let i=0;i<42;i++){const d=new Date(ini);d.setDate(ini.getDate()+i);dias.push(d);}
   if(dias[35].getMonth()!==m)dias=dias.slice(0,35);
   const porData={};
-  S.eventos.filter(visivel).sort(ordemEv).forEach(ev=>{(porData[ev.data]=porData[ev.data]||[]).push(ev);});
+  itensCal().sort(ordemEv).forEach(ev=>{(porData[ev.data]=porData[ev.data]||[]).push(ev);});
   const hoje=hojeIso();
   const grid=h('div',{class:'cal',role:'grid','aria-label':'Calendário de '+MESES[m]+' '+ano});
   ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'].forEach((n,i)=>{
@@ -738,12 +770,12 @@ function renderCalendario(){
       h('span',{class:'num'},d.getDate()),evbox));
   });
   const ag=h('div',{class:'agenda'},h('h3',null,'Agenda de '+MESES[m]));
-  const lm=S.eventos.filter(visivel).filter(doMes).sort(ordemEv);
+  const lm=itensCal().filter(doMes).sort(ordemEv);
   if(!lm.length)ag.append(h('p',{class:'vazio'},'Nenhum evento neste mês.'));
   let atual='',g=null;
   lm.forEach(ev=>{
     if(ev.data!==atual){atual=ev.data;g=h('div',{class:'dia-grupo'},h('h3',null,dataLonga(ev.data)));ag.append(g);}
-    g.append(linhaEvento(ev,abrirVer));
+    g.append(linhaEvento(ev,abrirItem));
   });
   box.append(grid,ag);
 }
@@ -756,6 +788,13 @@ function statusTag(ev){
   return h('span',{class:'tag'+(ev.status==='confirmado'||ev.status==='feito'?' ok':ev.status==='a_confirmar'?' pend':'')},rot);
 }
 function linhaEvento(ev,aoAbrir){
+  if(ev._tarefa){
+    return h('div',{class:'item',style:'--c:'+corDepto(ev.depto)},
+      h('span',{class:'ico'},icone('clip',18)),
+      h('div',{class:'tx'},h('b',{style:ev.feito?'text-decoration:line-through':''},ev.titulo),h('span',null,['Tarefa',ev.pessoa,ev.depto].filter(Boolean).join(' · '))),
+      h('span',{class:'tag'+(ev.feito?' ok':' pend')},ev.feito?'Concluída':'Em aberto'),
+      h('button',{class:'btn sm',type:'button',onclick:()=>aoAbrir(ev)},'Detalhes'));
+  }
   const t=tipoDe(ev);
   const sub=[ev.hora,ev.pessoa&&(t.pessoa+': '+ev.pessoa),ev.dirigente&&('Ancião responsável: '+ev.dirigente),ev.depto].filter(Boolean).join(' · ');
   return h('div',{class:'item',style:'--c:'+t.cor},
@@ -767,13 +806,13 @@ function linhaEvento(ev,aoAbrir){
 function renderLista(){
   const box=$('#vista');box.replaceChildren();
   const busca=S.busca.trim()!=='';
-  const lista=S.eventos.filter(visivel).filter(ev=>busca||doMes(ev)).sort(ordemEv);
+  const lista=itensCal().filter(ev=>busca||doMes(ev)).sort(ordemEv);
   if(busca)lista.reverse();
   if(!lista.length){box.append(h('p',{class:'vazio'},busca?'Nada encontrado para essa busca.':'Nenhum evento neste mês. Use o botão Novo evento para começar.'));return;}
   let atual='',grupo=null;
   lista.forEach(ev=>{
     if(ev.data!==atual){atual=ev.data;grupo=h('div',{class:'dia-grupo'},h('h3',null,dataLonga(ev.data)+(busca?' de '+parse(ev.data).getFullYear():'')));box.append(grupo);}
-    grupo.append(linhaEvento(ev,abrirVer));
+    grupo.append(linhaEvento(ev,abrirItem));
   });
 }
 
@@ -909,7 +948,11 @@ function abrirVer(ev){
 function abrirDia(iso){
   const lista=S.eventos.filter(e=>e.data===iso).sort(ordemEv);
   const corpo=h('div',{class:'form'});
-  if(!lista.length)corpo.append(h('p',{class:'vazio'},'Nada marcado para este dia.'));
+  if(!lista.length&&!tarefasCal().some(x=>x.data===iso))corpo.append(h('p',{class:'vazio'},'Nada marcado para este dia.'));
+  const tdia=tarefasCal().filter(x=>x.data===iso);
+  tdia.forEach(ev=>{corpo.append(h('div',{class:'ver-card',style:'--c:'+corDepto(ev.depto)},
+    h('div',{class:'ver-h'},h('span',{class:'ico'},icone('clip',20)),h('div',null,h('b',null,ev.titulo),h('span',null,'Tarefa · '+ev.depto+(ev.pessoa?' · '+ev.pessoa:'')+(ev.feito?' · concluída':'')))),
+    h('div',{class:'acoes'},h('button',{class:'btn sm',type:'button',onclick:()=>abrirTarefaVer(ev)},'Abrir tarefa'))));});
   lista.forEach(ev=>corpo.append(h('div',{class:'ver-card'},detalhesEvento(ev),
     h('div',{class:'acoes'},h('button',{class:'btn sm so-editor',type:'button',onclick:()=>abrirEvento(ev)},'Editar este evento')))));
   const d=parse(iso).getDay();
