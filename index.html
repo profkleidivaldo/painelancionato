@@ -361,18 +361,13 @@ const DEPTOS_PADRAO = [
   ['Saúde','#2e8b57'],['Educação','#6b5b95'],['Ministério da Possibilidade','#8a5a44'],['Ação Solidária (ASA)','#1e8a6e'],['Evangelismo','#c0463d']
 ];
 const PALETA = ['#2f6db5','#c2570c','#23794a','#9b3d8a','#8f6a00','#1f78a8','#b02a23','#5f4bb8','#137a73','#a0522d'];
+const nomeCat = id => {const c=S.catsVisita.find(x=>x.id===id);return c?c.nome:(id||'');};
 const CATS_VISITA = [['membros','Membros regulares'],['idosos','Idosos e enfermos'],['familias','Famílias designadas'],['convertidos','Novos convertidos']];
 const META_PADRAO = {membros:8,idosos:6,familias:5,convertidos:3};
 const MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const DIAS_L = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'];
 const DIAS_C = ['dom','seg','ter','qua','qui','sex','sáb'];
 const ROT_ST = {a_confirmar:'A confirmar',confirmado:'Confirmado',planejado:'Planejado',feito:'Realizado'};
-const IND_PADRAO = [
-  {id:'estudos',nome:'Estudos bíblicos ativos',meta:0,alc:0},
-  {id:'grupos',nome:'Pequenos grupos ativos',meta:0,alc:0},
-  {id:'batismos',nome:'Batismos no ano',meta:0,alc:0}
-];
-const IND_SUGESTOES = ['Estudos bíblicos ativos','Pequenos grupos ativos','Batismos no ano','Visitas missionárias no ano','Interessados em estudo bíblico','Membros na Escola Sabatina','Membros resgatados','Classes bíblicas em andamento','Livros e revistas distribuídos'];
 /* Dias com culto: sábado, domingo e quarta-feira. */
 const CULTOS_DIA = {6:'sábado',0:'domingo',3:'quarta'};
 /* Roteiros de culto: modelo inicial. Cada igreja ajusta pelo botão Editar roteiro. */
@@ -476,7 +471,7 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTi
 /* ---------- Estado ---------- */
 const S = {
   token:'',usuario:'',perfil:'editor',eventos:[],tarefas:[],pessoas:[],usuarios:[],metas:Object.assign({},META_PADRAO),
-  rodizio:{anciaos:[],inicio:''},liturgias:null,indicadores:IND_PADRAO.map(i=>Object.assign({},i)),
+  rodizio:{anciaos:[],inicio:''},liturgias:null,catsVisita:[],
   deptos:DEPTOS_PADRAO.map(p=>({nome:p[0],cor:p[1],responsavel:'',apoio:[]})),
   mes:new Date(new Date().getFullYear(),new Date().getMonth(),1,12),
   tipos:new Set(),depto:'',busca:'',vista:'cal',poll:null
@@ -601,14 +596,6 @@ function setSync(t){$('#sync').textContent=t;}
 function normDepto(d){
   return {nome:String(d.nome||''),cor:/^#[0-9a-f]{6}$/i.test(d.cor||'')?d.cor:'#6b7a80',responsavel:String(d.responsavel||''),apoio:Array.isArray(d.apoio)?d.apoio.map(String):[]};
 }
-function normIndicadores(x){
-  if(Array.isArray(x))return x.map(i=>({id:String(i.id||novoId()),nome:String(i.nome||''),meta:Number(i.meta)||0,alc:Number(i.alc)||0}));
-  if(x&&typeof x==='object'&&('estudosMeta' in x||'gruposMeta' in x||'batismosMeta' in x))  // servidor da versão anterior
-    return [{id:'estudos',nome:'Estudos bíblicos ativos',meta:Number(x.estudosMeta)||0,alc:Number(x.estudosAlc)||0},
-            {id:'grupos',nome:'Pequenos grupos ativos',meta:Number(x.gruposMeta)||0,alc:Number(x.gruposAlc)||0},
-            {id:'batismos',nome:'Batismos no ano',meta:Number(x.batismosMeta)||0,alc:Number(x.batismosAlc)||0}];
-  return IND_PADRAO.map(i=>Object.assign({},i));
-}
 function norm(r){
   S.eventos=(r.eventos||[]).slice();
   S.tarefas=(r.tarefas||[]).map(t=>Object.assign({},t,{feito:t.feito===true||t.feito==='true'}));
@@ -616,9 +603,10 @@ function norm(r){
   S.usuarios=(r.usuarios||[]).slice();
   const c=r.config||{};
   S.metas=Object.assign({},META_PADRAO,c.metasVisitas||{});
+  S.catsVisita=(Array.isArray(c.categoriasVisita)&&c.categoriasVisita.length?c.categoriasVisita:CATS_VISITA.map(k=>({id:k[0],nome:k[1],meta:S.metas[k[0]]})))
+    .map(k=>({id:String(k.id||novoId()),nome:String(k.nome||''),meta:Math.max(0,Number(k.meta)||0)}));
   S.rodizio=Object.assign({anciaos:[],inicio:''},c.rodizio||{});
   S.liturgias=c.liturgias||null;
-  S.indicadores=normIndicadores(c.indicadores);
   S.deptos=(Array.isArray(c.deptos)&&c.deptos.length?c.deptos:DEPTOS_PADRAO.map(p=>({nome:p[0],cor:p[1]}))).map(normDepto);
   if(S.depto&&!S.deptos.some(d=>d.nome===S.depto))S.depto='';
   if(r.perfil&&r.perfil!==S.perfil){S.perfil=r.perfil;aplicaPerfil();}
@@ -824,21 +812,21 @@ function cartao(titulo,ico,acao,corpo){
 }
 function cardVisitacao(){
   const mes=S.eventos.filter(e=>e.tipo==='visita'&&doMes(e));
-  const linhas=CATS_VISITA.map(c=>{
-    const k=c[0],feitas=mes.filter(e=>e.categoria===k&&e.status==='feito').length;
+  const linhas=S.catsVisita.map(c=>{
+    const k=c.id,feitas=mes.filter(e=>e.categoria===k&&e.status==='feito').length;
     const plan=mes.filter(e=>e.categoria===k&&e.status!=='feito').length;
-    const meta=Number(S.metas[k])||0;
+    const meta=Number(c.meta)||0;
     const pct=meta?Math.min(100,Math.round(feitas/meta*100)):(feitas?100:0);
     const cheio=meta>0&&feitas>=meta;
     return h('div',{class:'vis'+(cheio?' cheio':'')},
       h('span',{class:'ck'+(cheio?' on':'')},cheio&&icone('check',13)),
-      h('span',{class:'nm'},c[1]),
+      h('span',{class:'nm'},c.nome),
       h('span',{class:'qt'},feitas+' de '+meta+(plan?' · +'+plan+' marcada'+(plan>1?'s':''):'')),
-      h('div',{class:'bar',role:'progressbar','aria-valuemin':'0','aria-valuemax':String(meta),'aria-valuenow':String(feitas),'aria-label':c[1]},h('span',{style:'width:'+pct+'%'})));
+      h('div',{class:'bar',role:'progressbar','aria-valuemin':'0','aria-valuemax':String(meta),'aria-valuenow':String(feitas),'aria-label':c.nome},h('span',{style:'width:'+pct+'%'})));
   });
-  const acao=h('button',{class:'ibtn so-editor',type:'button',title:'Editar metas do mês','aria-label':'Editar metas',onclick:abrirMetas},icone('cog',18));
-  return cartao('Visitação Pastoral','home',acao,[
-    linhas,
+  const acao=h('button',{class:'ibtn so-editor',type:'button',title:'Categorias e metas do mês','aria-label':'Editar categorias e metas',onclick:abrirMetas},icone('cog',18));
+  return cartao('Visitação Ancionato','home',acao,[
+    linhas.length?linhas:h('p',{class:'muted'},'Nenhuma categoria. Toque na engrenagem para criar.'),
     h('div',{class:'rodape'},h('button',{class:'btn sm so-editor',type:'button',onclick:()=>abrirEvento({tipo:'visita',data:hojeIso(),status:'feito'})},icone('plus',14),'Registrar visita'))
   ]);
 }
@@ -906,7 +894,7 @@ function cardPulpito(){
 function renderLateral(){
   const s=$('#side');
   const velho=s.querySelector('.deps'),y=velho?velho.scrollTop:0;
-  s.replaceChildren(cardVisitacao(),cardIndicadores(),cardDeptos(),cardPulpito(),cardFerramentas());
+  s.replaceChildren(cardVisitacao(),cardDeptos(),cardPulpito(),cardFerramentas());
   const novo=s.querySelector('.deps');if(novo)novo.scrollTop=y;
 }
 
@@ -923,7 +911,7 @@ dlg.addEventListener('click',e=>{if(e.target===dlg)fechar();});
 function detalhesEvento(ev){
   const t=tipoDe(ev);
   const rotSt={a_confirmar:'A confirmar',confirmado:'Confirmado',planejado:'Planejado',feito:'Realizado'}[ev.status];
-  const cat=(CATS_VISITA.find(c=>c[0]===ev.categoria)||[])[1];
+  const cat=ev.categoria?nomeCat(ev.categoria):'';
   const pes=ev.pessoa?buscaPessoa(ev.pessoa):null;
   const dep=ev.depto?deptoPorNome(ev.depto):null;
   const linhas=[
@@ -975,7 +963,7 @@ function abrirEvento(base){
   const lbPessoa=h('label',{for:'e-pessoa'},'Responsável');
   const inPessoa=h('input',{type:'text',id:'e-pessoa',value:ev.pessoa,maxlength:'120',autocomplete:'off',list:'dl-pes'});
   const inDir=h('input',{type:'text',id:'e-dir',value:ev.dirigente,maxlength:'120',autocomplete:'off',list:'dl-anc'});
-  const selCat=h('select',{id:'e-cat',value:ev.categoria},h('option',{value:''},'Escolha'),CATS_VISITA.map(c=>h('option',{value:c[0]},c[1])));
+  const selCat=h('select',{id:'e-cat',value:ev.categoria},h('option',{value:''},'Escolha'),S.catsVisita.map(c=>h('option',{value:c.id},c.nome)));
   const selDepto=h('select',{id:'e-depto',value:ev.depto},h('option',{value:''},'Nenhum'),nomesDep.map(n=>h('option',{value:n},n)));
   const dicaDep=h('p',{class:'muted'});
   const selSt=h('select',{id:'e-st'});
@@ -1076,17 +1064,43 @@ async function registrarContato(nome,tel,cadastrar){
 
 function abrirMetas(){
   if(!pode()){toast('Seu acesso é somente de leitura.');return;}
-  const campos={};
-  const form=h('form',{class:'form'},h('p',{class:'muted'},'Quantas visitas realizadas por mês cada categoria deve ter.'),
-    CATS_VISITA.map(c=>{campos[c[0]]=h('input',{type:'number',id:'m-'+c[0],min:'0',max:'999',value:String(S.metas[c[0]]||0)});return h('div',null,h('label',{for:'m-'+c[0]},c[1]),campos[c[0]]);}),
-    h('div',{class:'acoes'},h('button',{class:'btn primary',type:'submit'},'Salvar metas'),h('button',{class:'btn',type:'button',onclick:fechar},'Cancelar')));
-  form.addEventListener('submit',async e=>{
-    e.preventDefault();
-    const v={};CATS_VISITA.forEach(c=>{v[c[0]]=Math.max(0,Math.min(999,Math.round(Number(campos[c[0]].value)||0)));});
-    try{await api('config',{chave:'metasVisitas',valor:v});S.metas=Object.assign({},META_PADRAO,v);render();fechar();toast('Metas salvas');}
-    catch(err){toast('Não foi possível salvar: '+err.message);}
+  const lista=S.catsVisita.map(c=>Object.assign({},c));
+  const area=h('div',{class:'form'});
+  const num=v=>Math.max(0,Math.min(999,Math.round(Number(v)||0)));
+  function desenha(){
+    area.replaceChildren();
+    if(!lista.length)area.append(h('p',{class:'vazio'},'Nenhuma categoria. Toque em Adicionar categoria.'));
+    lista.forEach((c,idx)=>{
+      const usadas=S.eventos.filter(e=>e.tipo==='visita'&&e.categoria===c.id).length;
+      let armado=false;
+      const bRem=h('button',{class:'ibtn',type:'button','aria-label':'Excluir categoria '+(c.nome||''),title:'Excluir categoria'},icone('x',16));
+      bRem.addEventListener('click',()=>{
+        if(lista.length<=1){toast('Mantenha pelo menos uma categoria.');return;}
+        if(usadas&&!armado){armado=true;toast('Há '+usadas+' visita(s) nesta categoria. Toque de novo para excluir.');setTimeout(()=>{armado=false;},4000);return;}
+        lista.splice(idx,1);desenha();
+      });
+      area.append(h('div',{class:'row2'},
+        h('div',{class:'top'},
+          h('input',{type:'text',maxlength:'60','aria-label':'Nome da categoria',placeholder:'Nome da categoria',value:c.nome,oninput:e=>{c.nome=e.target.value;}}),bRem),
+        h('div',null,h('label',null,'Meta de visitas realizadas por mês'),
+          h('input',{type:'number',min:'0',max:'999',inputmode:'numeric',value:String(c.meta),oninput:e=>{c.meta=num(e.target.value);}}))));
+    });
+  }
+  desenha();
+  const salvarBtn=h('button',{class:'btn primary',type:'button'},'Salvar');
+  salvarBtn.addEventListener('click',async()=>{
+    const v=lista.filter(c=>c.nome.trim()).map(c=>({id:c.id||novoId(),nome:c.nome.trim(),meta:num(c.meta)}));
+    if(!v.length){toast('Mantenha pelo menos uma categoria com nome.');return;}
+    if(new Set(v.map(c=>nrm(c.nome))).size!==v.length){toast('Há categorias com o mesmo nome.');return;}
+    salvarBtn.disabled=true;
+    if(await salvarCfg('categoriasVisita',v)){S.catsVisita=v;render();fechar();toast('Categorias salvas');}
+    else salvarBtn.disabled=false;
   });
-  abrir('Metas de visitação',form);
+  abrir('Categorias de visitação',h('div',{class:'form'},
+    h('p',{class:'muted'},'Crie, renomeie ou exclua categorias e defina a meta mensal de cada uma. Visitas já registradas continuam no calendário mesmo se a categoria for excluída.'),
+    area,
+    h('div',{class:'acoes'},h('button',{class:'btn',type:'button',onclick:()=>{if(lista.length>=20){toast('Limite de 20 categorias.');return;}lista.push({id:novoId(),nome:'',meta:0});desenha();}},icone('plus',15),'Adicionar categoria')),
+    h('div',{class:'acoes'},salvarBtn,h('button',{class:'btn',type:'button',onclick:fechar},'Cancelar'))));
 }
 
 function abrirTarefas(){
@@ -1238,19 +1252,6 @@ function copiarTexto(txt,ta){
 }
 
 /* ---------- Cartões do painel lateral ---------- */
-function cardIndicadores(){
-  const linha=i=>{
-    const alc=i.alc,meta=i.meta;
-    const pct=meta?Math.min(100,Math.round(alc/meta*100)):(alc?100:0),cheio=meta>0&&alc>=meta;
-    return h('div',{class:'vis'+(cheio?' cheio':'')},
-      h('span',{class:'ck'+(cheio?' on':'')},cheio&&icone('check',13)),
-      h('span',{class:'nm'},i.nome),h('span',{class:'qt'},alc+' de '+meta),
-      h('div',{class:'bar',role:'progressbar','aria-valuemin':'0','aria-valuemax':String(meta),'aria-valuenow':String(alc),'aria-label':i.nome},h('span',{style:'width:'+pct+'%'})));
-  };
-  const acao=h('button',{class:'ibtn so-editor',type:'button',title:'Editar indicadores','aria-label':'Editar indicadores',onclick:abrirIndicadores},icone('cog',18));
-  return cartao('Indicadores da Igreja','star',acao,
-    S.indicadores.length?S.indicadores.map(linha):h('p',{class:'muted'},pode()?'Nenhum indicador. Toque na engrenagem para criar.':'Nenhum indicador cadastrado.'));
-}
 function cardFerramentas(){
   const b=(ico,txt,fn)=>h('button',{class:'btn sm',type:'button',onclick:fn},icone(ico,15),txt);
   return cartao('Ferramentas do Ancionato','clip',null,h('div',{class:'tools2'},
@@ -1260,43 +1261,6 @@ function cardFerramentas(){
     b('book','Liturgias',()=>abrirLiturgias()),
     b('mic','Histórico de pregadores',()=>abrirHistorico()),
     b('file','PDF do mês',()=>pdfMes())));
-}
-
-/* ---------- Indicadores (criar, renomear, ajustar e remover) ---------- */
-function abrirIndicadores(){
-  if(!pode()){toast('Seu acesso é somente de leitura.');return;}
-  const lista=S.indicadores.map(i=>Object.assign({},i));
-  const area=h('div',{class:'form'});
-  const num=v=>Math.max(0,Math.min(99999,Math.round(Number(v)||0)));
-  function desenha(){
-    area.replaceChildren();
-    if(!lista.length)area.append(h('p',{class:'vazio'},'Nenhum indicador. Toque em Adicionar indicador.'));
-    lista.forEach((it,idx)=>{
-      area.append(h('div',{class:'row2'},
-        h('div',{class:'top'},
-          h('input',{type:'text',maxlength:'60',list:'dl-ind','aria-label':'Nome do indicador',placeholder:'Nome do indicador',value:it.nome,oninput:e=>{it.nome=e.target.value;}}),
-          h('button',{class:'ibtn',type:'button','aria-label':'Remover '+(it.nome||'indicador'),title:'Remover',onclick:()=>{lista.splice(idx,1);desenha();}},icone('x',16))),
-        h('div',{class:'g2'},
-          h('div',null,h('label',null,'Alcançado'),h('input',{type:'number',min:'0',max:'99999',inputmode:'numeric',value:it.alc,oninput:e=>{it.alc=num(e.target.value);}})),
-          h('div',null,h('label',null,'Meta'),h('input',{type:'number',min:'0',max:'99999',inputmode:'numeric',value:it.meta,oninput:e=>{it.meta=num(e.target.value);}})))));
-    });
-  }
-  desenha();
-  const salvarBtn=h('button',{class:'btn primary',type:'button'},'Salvar');
-  salvarBtn.addEventListener('click',async()=>{
-    const v=lista.filter(i=>i.nome.trim()).map(i=>({id:i.id||novoId(),nome:i.nome.trim(),meta:num(i.meta),alc:num(i.alc)}));
-    if(v.length>20){toast('Use no máximo 20 indicadores.');return;}
-    salvarBtn.disabled=true;
-    if(await salvarCfg('indicadores',v)){S.indicadores=v;render();fechar();toast('Indicadores salvos');}
-    else salvarBtn.disabled=false;
-  });
-  abrir('Indicadores da igreja',h('div',{class:'form'},
-    h('p',{class:'muted'},'Ajuste o que já foi alcançado e a meta de cada indicador. Você pode renomear, remover e criar outros.'),
-    area,
-    h('div',{class:'acoes'},
-      h('button',{class:'btn',type:'button',onclick:()=>{if(lista.length>=20){toast('Limite de 20 indicadores.');return;}lista.push({id:novoId(),nome:'',meta:0,alc:0});desenha();}},icone('plus',15),'Adicionar indicador')),
-    h('div',{class:'acoes'},salvarBtn,h('button',{class:'btn',type:'button',onclick:fechar},'Cancelar')),
-    datalist('dl-ind',IND_SUGESTOES)));
 }
 
 /* ---------- Departamentos: quem promove e quem apoia ---------- */
