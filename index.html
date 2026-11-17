@@ -7,6 +7,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Painel do Ancião">
 <meta name="theme-color" content="#1b3a5c">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="application-name" content="Painel do Ancião">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <title>Painel do Ancião</title>
@@ -271,6 +276,7 @@ input[type=color]{width:44px;height:36px;padding:2px;border:1px solid var(--line
       <p id="lg-erro" class="erro" role="alert" hidden></p>
       <button class="btn primary block" type="submit" id="lg-btn">Entrar</button>
     </form>
+    <button class="btn block js-inst" type="button" hidden>Instalar app no celular</button>
     <p class="demo" id="lg-demo" hidden>Modo demonstração: nenhum servidor configurado. Use qualquer nome e senha. Os dados ficam só neste navegador.</p>
   </div>
 </div>
@@ -282,6 +288,7 @@ input[type=color]{width:44px;height:36px;padding:2px;border:1px solid var(--line
     <div class="who">
       <button class="sino" id="b-sino" type="button" aria-label="Alertas" title="Alertas"></button>
       <button class="sync" id="sync" type="button" title="Atualizar agora"></button>
+      <button class="btn js-inst" type="button" hidden>Instalar app</button>
       <span class="nome" id="usuario"></span>
       <button class="btn" id="b-senha" type="button">Senha</button>
       <button class="btn" id="b-sair" type="button">Sair</button>
@@ -478,8 +485,10 @@ const S = {
 };
 
 /* ---------- API (Apps Script) ---------- */
-async function api(action,dados){
-  if(!CONFIG.API_URL)return demoApi(action,dados||{});
+const ESCRITAS=['salvar','excluir','config'];
+function erroRede(msg){const e=new Error(msg||'Sem conexão com o servidor.');e.rede=true;return e;}
+async function chamar(action,dados){
+  if(navigator.onLine===false)throw erroRede();
   const ctrl=new AbortController();const t=setTimeout(()=>ctrl.abort(),30000);
   try{
     const r=await fetch(CONFIG.API_URL,{
@@ -489,7 +498,7 @@ async function api(action,dados){
       signal:ctrl.signal
     });
     const j=await r.json();
-    if(j.auth===false&&action!=='login'){sair('Sua sessão expirou. Entre novamente.');throw new Error(j.erro||'Sessão expirada.');}
+    if(j.auth===false&&action!=='login'){sair('Sua sessão expirou. Entre novamente.');const e=new Error(j.erro||'Sessão expirada.');e.auth=true;throw e;}
     if(!j.ok){
       const m=j.erro||'Erro no servidor.';
       if(/^(Configuração inválida|Entidade inválida|Valor inválido em|Configuração desconhecida)/.test(m))
@@ -498,11 +507,67 @@ async function api(action,dados){
     }
     return j;
   }catch(e){
-    if(e.name==='AbortError')throw new Error('O servidor demorou para responder.');
-    if(e instanceof TypeError)throw new Error('Sem conexão com o servidor.');
+    if(e.name==='AbortError')throw erroRede('O servidor demorou para responder.');
+    if(e instanceof TypeError)throw erroRede();
     throw e;
   }finally{clearTimeout(t);}
 }
+/* Fila de alterações feitas sem internet: guardada no aparelho e enviada em ordem quando a conexão volta. */
+const FILA_KEY='painel_fila',CACHE_KEY='painel_cache';
+function lerFila(){try{return JSON.parse(localStorage.getItem(FILA_KEY)||'[]');}catch(_){return [];}}
+function gravarFila(f){try{if(f.length)localStorage.setItem(FILA_KEY,JSON.stringify(f));else localStorage.removeItem(FILA_KEY);}catch(_){toast('A memória do aparelho está cheia. Conecte-se à internet para enviar as alterações.');}}
+function enfileirar(action,dados){
+  const f=lerFila();
+  if(action==='config'){const i=f.findIndex(x=>x.action==='config'&&x.dados.chave===dados.chave);if(i>=0)f.splice(i,1);}
+  f.push({action:action,dados:dados});gravarFila(f);
+  setSync(navigator.onLine===false?'Offline':'Aguardando envio');
+}
+function respostaOffline(action,dados){
+  if(action!=='salvar')return {ok:true,offline:true};
+  const col=S[dados.entidade]||[];
+  return {ok:true,offline:true,itens:(dados.itens||[]).map(it=>Object.assign({},col.find(x=>x.id===it.id)||{criadoPor:S.usuario},it))};
+}
+let enviando=false;
+async function esvaziarFila(){
+  if(enviando||!S.token||!lerFila().length)return;
+  enviando=true;
+  try{
+    let f=lerFila();
+    while(f.length){
+      try{await chamar(f[0].action,f[0].dados);}
+      catch(e){
+        if(e.rede||e.auth)break;
+        toast('Uma alteração feita offline foi recusada: '+e.message);
+      }
+      f=lerFila();f.shift();gravarFila(f);
+    }
+  }finally{enviando=false;}
+}
+async function api(action,dados){
+  if(!CONFIG.API_URL)return demoApi(action,dados||{});
+  const escrita=ESCRITAS.indexOf(action)>=0;
+  if(escrita&&lerFila().length){   // já há coisas na fila: mantém a ordem
+    enfileirar(action,dados);esvaziarFila().then(()=>{setSync(lerFila().length?'Aguardando envio':'Enviado');});
+    return respostaOffline(action,dados);
+  }
+  try{return await chamar(action,dados);}
+  catch(e){
+    if(escrita&&e.rede){
+      enfileirar(action,dados);
+      setTimeout(()=>toast('Sem internet: salvo neste aparelho. Será enviado quando a conexão voltar.'),700);
+      return respostaOffline(action,dados);
+    }
+    throw e;
+  }
+}
+function cacheLocal(){   // guarda o estado atual (inclusive alterações offline) para o próximo uso sem internet
+  try{const c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');if(!c)return;
+    c.r.eventos=S.eventos;c.r.tarefas=S.tarefas;c.r.pessoas=S.pessoas;
+    c.r.config=Object.assign({},c.r.config,{categoriasVisita:S.catsVisita,deptos:S.deptos,rodizio:S.rodizio,liturgias:S.liturgias});
+    localStorage.setItem(CACHE_KEY,JSON.stringify(c));}catch(_){}
+}
+function guardarCache(r){try{localStorage.setItem(CACHE_KEY,JSON.stringify({u:S.usuario,r:r}));}catch(_){}}
+function lerCache(){try{const c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');return c&&c.u===S.usuario?c.r:null;}catch(_){return null;}}
 
 /* ---------- Modo demonstração (sem servidor) ---------- */
 function demoSeed(){
@@ -580,19 +645,20 @@ function mostrarLogin(msg){
 }
 function sair(msg){
   clearInterval(S.poll);S.token='';S.usuario='';S.perfil='editor';document.body.classList.remove('leitor');limparSessao();
-  S.eventos=[];S.tarefas=[];S.pessoas=[];S.usuarios=[];S.tipos.clear();S.depto='';fechar();
+  S.eventos=[];S.tarefas=[];S.pessoas=[];S.usuarios=[];S.tipos.clear();S.depto='';fechar();try{localStorage.removeItem(CACHE_KEY);}catch(_){}
   mostrarLogin(msg);
 }
 function entrar(){
   $('#login').hidden=true;$('#app').hidden=false;
   aplicaPerfil();
+  const c0=lerCache();if(c0){norm(c0);render();}   // mostra na hora o que ficou guardado no aparelho
   carregar(false);
   clearInterval(S.poll);
   S.poll=setInterval(()=>{if(!document.hidden&&S.token)carregar(true);},60000);
 }
 
 /* ---------- Dados ---------- */
-function setSync(t){$('#sync').textContent=t;}
+function setSync(t){const n=lerFila().length;$('#sync').textContent=t+(n?' · '+n+' pendente'+(n>1?'s':''):'');}
 function normDepto(d){
   return {nome:String(d.nome||''),cor:/^#[0-9a-f]{6}$/i.test(d.cor||'')?d.cor:'#6b7a80',responsavel:String(d.responsavel||''),apoio:Array.isArray(d.apoio)?d.apoio.map(String):[]};
 }
@@ -614,10 +680,16 @@ function norm(r){
 async function carregar(silencioso){
   try{
     if(!silencioso)setSync('Sincronizando…');
+    await esvaziarFila();
+    if(!S.token)return;
+    if(lerFila().length){setSync(navigator.onLine===false?'Offline':'Aguardando envio');return;}   // não sobrescreve o que ainda não foi enviado
     const r=await api('listar');
-    norm(r);render();
+    norm(r);guardarCache(r);render();
     const n=new Date();setSync('Atualizado às '+pad(n.getHours())+':'+pad(n.getMinutes()));
-  }catch(e){setSync('Falha ao sincronizar. Toque para tentar de novo.');if(!silencioso)toast(e.message);}
+  }catch(e){
+    if(e.rede){setSync('Offline · usando dados salvos');return;}
+    setSync('Falha ao sincronizar. Toque para tentar de novo.');if(!silencioso)toast(e.message);
+  }
 }
 async function salvar(col,itens){
   if(!pode()){toast('Seu acesso é somente de leitura.');render();return false;}
@@ -633,14 +705,14 @@ async function salvar(col,itens){
       if(col==='tarefas')o.feito=o.feito===true||o.feito==='true';
       const i=S[col].findIndex(x=>x.id===o.id);if(i>=0)S[col][i]=o;
     });
-    render();return true;
+    render();cacheLocal();return true;
   }catch(e){S[col]=antes;render();toast('Não foi possível salvar: '+e.message);return false;}
 }
 async function excluir(col,id){
   if(!pode()){toast('Seu acesso é somente de leitura.');return false;}
   const antes=S[col].slice();
   S[col]=S[col].filter(x=>x.id!==id);render();
-  try{await api('excluir',{entidade:col,id:id});return true;}
+  try{await api('excluir',{entidade:col,id:id});cacheLocal();return true;}
   catch(e){S[col]=antes;render();toast('Não foi possível excluir: '+e.message);return false;}
 }
 
@@ -1671,9 +1743,31 @@ function iniciar(){
   $('#v-lista').addEventListener('click',()=>{S.vista='lista';render();});
   $('#busca').addEventListener('input',e=>{S.busca=e.target.value;if(S.busca.trim()&&S.vista==='cal')S.vista='lista';render();});
   $('#b-novo').addEventListener('click',()=>abrirEvento({data:hojeIso()}));
-  $('#b-sair').addEventListener('click',()=>sair(''));
+  $('#b-sair').addEventListener('click',()=>{if(navigator.onLine===false&&!confirm('Você está sem internet e precisará de conexão para entrar de novo. Sair mesmo assim?'))return;sair('');});
   $('#b-senha').addEventListener('click',abrirSenha);
   $('#sync').addEventListener('click',()=>carregar(false));
+  window.addEventListener('online',()=>{if(S.token&&!$('#app').hidden)carregar(true);});
+  window.addEventListener('offline',()=>{if(S.token)setSync('Offline · usando dados salvos');});
+  /* Instalação como app */
+  let promptInst=null;
+  const standalone=()=>window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  const ehIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const mostrarInst=()=>document.querySelectorAll('.js-inst').forEach(b=>{b.hidden=standalone()||!(promptInst||ehIOS());});
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();promptInst=e;mostrarInst();});
+  window.addEventListener('appinstalled',()=>{promptInst=null;mostrarInst();toast('App instalado.');});
+  document.querySelectorAll('.js-inst').forEach(b=>b.addEventListener('click',()=>{
+    if(promptInst){promptInst.prompt();promptInst.userChoice.then(()=>{promptInst=null;mostrarInst();});return;}
+    abrir('Instalar no iPhone ou iPad',h('div',{class:'form keep'},
+      h('p',null,'No Safari, toque no botão Compartilhar (quadrado com seta para cima), role a lista e escolha Adicionar à Tela de Início.'),
+      h('p',{class:'muted'},'Depois de instalado, o app abre em tela cheia e funciona sem internet.'),
+      h('div',{class:'acoes'},h('button',{class:'btn',type:'button',onclick:fechar},'Entendi'))));
+  }));
+  mostrarInst();
+  if('serviceWorker' in navigator&&/^https?:$/.test(location.protocol)){
+    const tinha=!!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{if(tinha)toast('Nova versão instalada. Feche e abra o app para usar.');});
+    window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  }
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.token&&!$('#app').hidden)carregar(true);});
   $('#f-login').addEventListener('submit',async e=>{
     e.preventDefault();
