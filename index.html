@@ -221,6 +221,11 @@ body.leitor dialog form:not(.keep){display:none}
 .al.bad i{background:var(--sun)}
 .al span{min-width:0;overflow-wrap:anywhere}
 .ranks{display:flex;flex-wrap:wrap;gap:6px}
+.chips{gap:6px}
+.top-st{display:grid;gap:2px}
+input.mus{border-color:var(--gold);background:color-mix(in srgb,var(--gold) 10%,var(--surface))}
+input[readonly],textarea[readonly]{opacity:.85}
+.row2 a.btn{text-decoration:none}
 .sec-t{margin:6px 0 0;font:700 14px var(--font-head);color:var(--title)}
 .deps{display:grid;gap:5px;max-height:290px;overflow:auto;padding-right:2px}
 .dep{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:7px 10px;border-radius:9px;border:1px solid var(--line);background:var(--surface);cursor:pointer}
@@ -526,14 +531,14 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTi
 /* ---------- Estado ---------- */
 const S = {
   token:'',usuario:'',perfil:'editor',eventos:[],tarefas:[],pessoas:[],usuarios:[],metas:Object.assign({},META_PADRAO),
-  rodizio:{semanas:{}},liturgias:null,catsVisita:[],
+  rodizio:{semanas:{}},liturgias:null,lits:{},catsVisita:[],
   deptos:DEPTOS_PADRAO.map(p=>({nome:p[0],cor:p[1],responsavel:'',apoio:[]})),
   mes:new Date(new Date().getFullYear(),new Date().getMonth(),1,12),
   tipos:new Set(),depto:'',busca:'',vista:'cal',poll:null
 };
 
 /* ---------- API (Apps Script) ---------- */
-const ESCRITAS=['salvar','excluir','config'];
+const ESCRITAS=['salvar','excluir','config','litSalvar','litExcluir','litMusica'];
 function erroRede(msg){const e=new Error(msg||'Sem conexão com o servidor.');e.rede=true;return e;}
 async function chamar(action,dados){
   if(navigator.onLine===false)throw erroRede();
@@ -567,6 +572,12 @@ function gravarFila(f){try{if(f.length)localStorage.setItem(FILA_KEY,JSON.string
 function enfileirar(action,dados){
   const f=lerFila();
   if(action==='config'){const i=f.findIndex(x=>x.action==='config'&&x.dados.chave===dados.chave);if(i>=0)f.splice(i,1);}
+  const mesma=x=>x.dados&&x.dados.tipo===dados.tipo&&x.dados.data===dados.data;
+  if(action==='litSalvar'){for(let i=f.length-1;i>=0;i--)if(f[i].action==='litSalvar'&&mesma(f[i]))f.splice(i,1);}   // só a última versão da liturgia precisa ir
+  if(action==='litMusica'){
+    let i=-1;for(let j=f.length-1;j>=0;j--){if(f[j].action==='litExcluir'&&mesma(f[j]))break;if(f[j].action==='litMusica'&&mesma(f[j])){i=j;break;}}
+    if(i>=0){const d0=f[i].dados.delta=f[i].dados.delta||{m:{}};d0.m=Object.assign({},d0.m,dados.delta.m);if(dados.delta.v!==undefined)d0.v=dados.delta.v;gravarFila(f);setSync(navigator.onLine===false?'Offline':'Aguardando envio');return;}
+  }
   f.push({action:action,dados:dados});gravarFila(f);
   setSync(navigator.onLine===false?'Offline':'Aguardando envio');
 }
@@ -610,7 +621,7 @@ async function api(action,dados){
 }
 function cacheLocal(){   // guarda o estado atual (inclusive alterações offline) para o próximo uso sem internet
   try{const c=JSON.parse(localStorage.getItem(CACHE_KEY)||'null');if(!c)return;
-    c.r.eventos=S.eventos;c.r.tarefas=S.tarefas;c.r.pessoas=S.pessoas;
+    c.r.eventos=S.eventos;c.r.tarefas=S.tarefas;c.r.pessoas=S.pessoas;c.r.liturgias=Object.keys(S.lits).map(k=>S.lits[k]);
     c.r.config=Object.assign({},c.r.config,{categoriasVisita:S.catsVisita,deptos:S.deptos,rodizio:S.rodizio,liturgias:S.liturgias});
     localStorage.setItem(CACHE_KEY,JSON.stringify(c));}catch(_){}
 }
@@ -655,8 +666,18 @@ async function demoApi(action,dados){
   if(action==='login'){if(!dados.nome||!dados.senha)throw new Error('Informe nome e senha.');return {ok:true,token:'demo',usuario:String(dados.nome).trim(),perfil:'editor'};}
   if(action==='listar'){
     const us=[S.usuario,'Ancião Costa','Ancião Lima'].filter(Boolean);
-    return {ok:true,eventos:d.eventos,tarefas:d.tarefas,pessoas:d.pessoas,usuarios:us.map(n=>({nome:n,perfil:'editor'})),config:d.config,perfil:'editor'};
+    return {ok:true,eventos:d.eventos,tarefas:d.tarefas,pessoas:d.pessoas,usuarios:us.map(n=>({nome:n,perfil:'editor'})),config:d.config,perfil:'editor',liturgias:d.liturgias||[]};
   }
+  if(action==='litListar')return {ok:true,liturgias:d.liturgias||[]};
+  if(action==='litSalvar'||action==='litMusica'||action==='litExcluir'){
+    d.liturgias=d.liturgias||[];const id=dados.tipo+'_'+dados.data;let r=d.liturgias.find(x=>x.id===id);
+    if(action==='litExcluir'){d.liturgias=d.liturgias.filter(x=>x.id!==id);demoSave(d);return {ok:true};}
+    if(!r){r={id:id,tipo:dados.tipo,data:dados.data,dados:null,musica:{v:'',m:{}}};d.liturgias.push(r);}
+    if(action==='litSalvar')r.dados=dados.dados;
+    else{if(dados.delta.v!==undefined)r.musica.v=dados.delta.v;Object.keys(dados.delta.m||{}).forEach(k=>{if(dados.delta.m[k])r.musica.m[k]=dados.delta.m[k];else delete r.musica.m[k];});r.musicaPor=S.usuario+' (ancionato)';r.musicaEm=new Date().toISOString();}
+    demoSave(d);return {ok:true,lit:r};
+  }
+  if(action==='chaveMusica')return {ok:true,chave:'demonstracao'};
   if(action==='salvar'){
     d[dados.entidade]=d[dados.entidade]||[];const col=d[dados.entidade];
     (dados.itens||[]).forEach(it=>{const i=col.findIndex(x=>x.id===it.id);const o=Object.assign({},i>=0?col[i]:{},it,{atualizadoPor:S.usuario,atualizadoEm:new Date().toISOString()});if(i>=0)col[i]=o;else col.push(o);});
@@ -693,7 +714,7 @@ function mostrarLogin(msg){
 }
 function sair(msg){
   clearInterval(S.poll);S.token='';S.usuario='';S.perfil='editor';document.body.classList.remove('leitor');limparSessao();
-  S.eventos=[];S.tarefas=[];S.pessoas=[];S.usuarios=[];S.tipos.clear();S.depto='';fechar();try{localStorage.removeItem(CACHE_KEY);}catch(_){}
+  S.eventos=[];S.tarefas=[];S.pessoas=[];S.usuarios=[];S.lits={};S.tipos.clear();S.depto='';fechar();try{localStorage.removeItem(CACHE_KEY);}catch(_){}
   mostrarLogin(msg);
 }
 function entrar(){
@@ -721,6 +742,7 @@ function norm(r){
     .map(k=>({id:String(k.id||novoId()),nome:String(k.nome||''),meta:Math.max(0,Number(k.meta)||0)}));
   S.rodizio=migraRodizio(c.rodizio);
   S.liturgias=c.liturgias||null;
+  S.lits={};(r.liturgias||[]).forEach(x=>{if(x&&x.tipo&&x.data)S.lits[litKey(x.tipo,x.data)]=x;});
   S.deptos=(Array.isArray(c.deptos)&&c.deptos.length?c.deptos:DEPTOS_PADRAO.map(p=>({nome:p[0],cor:p[1]}))).map(normDepto);
   if(S.depto&&!S.deptos.some(d=>d.nome===S.depto))S.depto='';
   if(r.perfil&&r.perfil!==S.perfil){S.perfil=r.perfil;aplicaPerfil();}
@@ -733,6 +755,7 @@ async function carregar(silencioso){
     if(lerFila().length){setSync(navigator.onLine===false?'Offline':'Aguardando envio');return;}   // não sobrescreve o que ainda não foi enviado
     const r=await api('listar');
     norm(r);guardarCache(r);render();
+    if(litAtual)litAtual.refresca();
     const n=new Date();setSync('Atualizado às '+pad(n.getHours())+':'+pad(n.getMinutes()));
   }catch(e){
     if(e.rede){setSync('Offline · usando dados salvos');return;}
@@ -1631,7 +1654,6 @@ function abrirPessoas(aba){
 }
 
 /* ---------- Liturgias ---------- */
-const LIT_RASC = 'painel-lit-rascunhos';
 const copia = o => JSON.parse(JSON.stringify(o));
 /* Modelo da igreja: o que foi salvo em "Salvar como modelo" ou, se não houver, o modelo original. */
 function litModelo(tipo){
@@ -1654,15 +1676,34 @@ function proximaDataLit(tipo){
   while(d.getDay()!==LIT_MODELOS[tipo].dia)d.setDate(d.getDate()+1);
   return isoOf(d);
 }
-function lerRascunhos(){try{return JSON.parse(localStorage.getItem(LIT_RASC)||'{}')||{};}catch(_){return {};}}
-function gravarRascunho(tipo,data,L){
-  try{
-    const r=lerRascunhos();r[tipo+'|'+data]=Object.assign({},L,{_t:Date.now()});
-    Object.keys(r).sort((a,b)=>(r[b]._t||0)-(r[a]._t||0)).slice(20).forEach(k=>delete r[k]);
-    localStorage.setItem(LIT_RASC,JSON.stringify(r));
-  }catch(_){}
+/* Liturgias salvas no servidor: cada culto (tipo + data) tem a parte do ancionato ("dados") e a parte da música ("musica"). */
+const litKey = (tipo,data) => tipo+'|'+data;
+/* Linha só do ancionato: a página da música não vê o que está escrito nela. */
+const ehAncionato = l => {const r=String(l.r||'').trim();return !!r&&r.split('/').every(p=>/ancionato/i.test(p));};
+function litChaves(L){const c={};L.secoes.forEach(s=>s.l.forEach(l=>{const b=l.m+'|'+l.h;c[b]=(c[b]||0)+1;l.k=c[b]>1?b+'#'+c[b]:b;}));}
+function litDadosServidor(L){const c=litCompacta(L);c.turno=L.turno.slice();return c;}
+/* Monta a liturgia de um culto: o que está salvo (ancionato + música) ou, se ainda não há nada, o modelo da igreja. */
+function litMontar(tipo,data){
+  const rec=S.lits[litKey(tipo,data)];
+  let L;
+  if(rec&&rec.dados&&Array.isArray(rec.dados.secoes)){
+    const d=rec.dados;L=litModelo(tipo);
+    L.titulo=d.titulo||L.titulo;L.hora=d.hora||L.hora;L.obs=d.obs||'';
+    L.secoes=d.secoes.map(s=>({t:s.t||'',col:s.col||'Detalhes',q:!!s.q,l:(s.l||[]).map(a=>({m:a[0]||'',h:a[1]||'',d:a[2]||'',r:a[3]||'',a:a[4]||''}))}));
+    L.turno=['','','',''].map((_,i)=>(d.turno&&d.turno[i])||'');
+  }else L=novaLiturgia(tipo,data);
+  L.proprio=litModelo(tipo).proprio;
+  litChaves(L);
+  const mu=(rec&&rec.musica)||{v:'',m:{}};
+  L.vocal=mu.v||'';
+  L.secoes.forEach(s=>s.l.forEach(l=>{l.x=(mu.m&&mu.m[l.k])||'';}));
+  return L;
 }
-function apagarRascunho(tipo,data){try{const r=lerRascunhos();delete r[tipo+'|'+data];localStorage.setItem(LIT_RASC,JSON.stringify(r));}catch(_){}}
+/* Para PDF e WhatsApp: o que o ancionato e a música escreveram no mesmo momento aparece junto. */
+function litSaida(L){const c=copia(L);c.secoes.forEach(s=>s.l.forEach(l=>{l.d=[l.d,l.x].filter(Boolean).join(' - ');}));return c;}
+const urlMusica = chave => new URL('musica.html',location.href).href.split('#')[0].split('?')[0]+'#k='+chave;
+function fmtQuando(iso){const d=new Date(iso);return isNaN(d)?'':pad(d.getDate())+'/'+pad(d.getMonth()+1)+' às '+pad(d.getHours())+':'+pad(d.getMinutes());}
+let litAtual=null;
 function novaLiturgia(tipo,data){
   const L=litModelo(tipo),aw=anciaoDaSemana(data),pre=pregadorDo(data);
   L.turno=['','','',''];if(aw)L.turno[0]=aw;
@@ -1792,30 +1833,131 @@ async function pdfLiturgia(L,tipo,data){
 
 function abrirLiturgias(tipo,dataIni){
   tipo=LIT_TIPOS[tipo]?tipo:'sabado';
-  let data=dataIni||proximaDataLit(tipo),L=null,estrutura=false,uid=0;
+  let data=dataIni||proximaDataLit(tipo),L=null,estrutura=false,uid=0,mostrarLink=false,linkTxt='';
+  const ro=!pode();
+  let tA=null,tM=null,pendM={},pendV=null,sujoA=false,primeiraSync=true;
+  const camposMus=new Map();let campoVocal=null;
   const corpo=h('div',{class:'form'});
-  function carrega(){const r=lerRascunhos()[tipo+'|'+data];L=r?copia(r):novaLiturgia(tipo,data);L.proprio=litModelo(tipo).proprio;}
-  const guarda=()=>gravarRascunho(tipo,data,L);
+  const stEl=h('span',{class:'muted',role:'status','aria-live':'polite'});
+  const infoMus=h('p',{class:'muted'});
+  const setSt=t=>{stEl.textContent=t;};
+  function carrega(){L=litMontar(tipo,data);pendM={};pendV=null;sujoA=false;}
+  function recAtual(){const k=litKey(tipo,data);return S.lits[k]||(S.lits[k]={id:tipo+'_'+data,tipo:tipo,data:data,dados:null,musica:{v:'',m:{}}});}
+  async function enviar(action,dados){
+    try{const r=await api(action,dados);setSt(r&&r.offline?'Sem internet: salvo no aparelho, será enviado depois':'Salvo');}
+    catch(e){setSt('Não foi possível salvar');toast('Não foi possível salvar a liturgia: '+e.message);}
+  }
+  function enviaAnc(){
+    clearTimeout(tA);tA=null;if(!sujoA||ro)return;sujoA=false;
+    const dados=litDadosServidor(L);recAtual().dados=dados;cacheLocal();
+    setSt('Salvando…');enviar('litSalvar',{tipo:tipo,data:data,dados:dados});
+  }
+  function enviaMus(){
+    clearTimeout(tM);tM=null;if(ro)return;
+    const m=pendM,delta={m:m};if(pendV!==null)delta.v=pendV;
+    if(!Object.keys(m).length&&pendV===null)return;
+    pendM={};pendV=null;
+    const rec=recAtual();rec.musica=rec.musica||{v:'',m:{}};
+    if(delta.v!==undefined)rec.musica.v=delta.v;
+    Object.keys(m).forEach(k=>{if(m[k])rec.musica.m[k]=m[k];else delete rec.musica.m[k];});
+    cacheLocal();setSt('Salvando…');enviar('litMusica',{tipo:tipo,data:data,delta:delta});
+  }
+  const flush=()=>{enviaAnc();enviaMus();};
+  const guarda=()=>{if(ro)return;sujoA=true;setSt('Salvando…');clearTimeout(tA);tA=setTimeout(enviaAnc,800);};
+  const guardaMus=(k,v)=>{if(ro)return;pendM[k]=v;setSt('Salvando…');clearTimeout(tM);tM=setTimeout(enviaMus,800);};
+  const guardaVocal=v=>{if(ro)return;pendV=v;setSt('Salvando…');clearTimeout(tM);tM=setTimeout(enviaMus,800);};
+
+  function textoInfoMus(){
+    const rec=S.lits[litKey(tipo,data)];
+    infoMus.textContent=rec&&rec.musicaEm?'Música: último preenchimento por '+(rec.musicaPor||'—')+', em '+fmtQuando(rec.musicaEm)+'.':'A música ainda não preencheu este culto.';
+  }
+  /* Traz o que a música preencheu sem apagar o que está sendo digitado agora. */
+  function aplicaMusica(){
+    const rec=S.lits[litKey(tipo,data)],mu=(rec&&rec.musica)||{v:'',m:{}};
+    if(campoVocal&&pendV===null&&document.activeElement!==campoVocal){L.vocal=mu.v||'';if(campoVocal.value!==L.vocal)campoVocal.value=L.vocal;}
+    L.secoes.forEach(s=>s.l.forEach(l=>{
+      const el=camposMus.get(l.k);if(!el||(l.k in pendM)||document.activeElement===el)return;
+      const v=(mu.m&&mu.m[l.k])||'';l.x=v;if(el.value!==v)el.value=v;
+    }));
+    textoInfoMus();
+  }
+  async function sincroniza(){
+    if(lerFila().length||sujoA||tA||tM)return;
+    try{
+      const r=await api('litListar');
+      S.lits={};(r.liturgias||[]).forEach(x=>{if(x&&x.tipo&&x.data)S.lits[litKey(x.tipo,x.data)]=x;});
+      cacheLocal();
+      if(sujoA||tA||tM)return;
+      if(primeiraSync){primeiraSync=false;carrega();desenha();}else aplicaMusica();
+    }catch(_){}
+  }
+
   function campo(rot,obj,chave,extra){
     const id='lt'+(++uid);
     return h('div',null,h('label',{for:id},rot),
-      h('input',Object.assign({type:'text',id:id,maxlength:'160',value:obj[chave]||'',oninput:e=>{obj[chave]=e.target.value;guarda();}},extra||{})));
+      h('input',Object.assign({type:'text',id:id,maxlength:'160',readonly:ro,value:obj[chave]||'',oninput:e=>{obj[chave]=e.target.value;guarda();}},extra||{})));
   }
   function mover(arr,i,d){const j=i+d;if(j<0||j>=arr.length)return;const t=arr[i];arr[i]=arr[j];arr[j]=t;guarda();desenha();}
+  function datasChips(){
+    const out=new Set();const d=parse(proximaDataLit(tipo));
+    for(let i=0;i<5;i++){out.add(isoOf(d));d.setDate(d.getDate()+7);}
+    Object.keys(S.lits).forEach(k=>{const r=S.lits[k];if(r.tipo===tipo&&r.data>=hojeIso())out.add(r.data);});
+    out.add(data);
+    return Array.from(out).sort().slice(0,12);
+  }
+  function painelLink(){
+    if(!mostrarLink)return null;
+    const inp=h('input',{type:'text',readonly:true,value:linkTxt||'Gerando…','aria-label':'Link da página da música',onfocus:e=>e.target.select()});
+    const novo=h('button',{class:'btn sm',type:'button'},'Gerar novo link');
+    novo.addEventListener('click',async()=>{
+      if(!confirm('Gerar um novo link? O link atual deixa de funcionar e você precisará enviar o novo para a música.'))return;
+      try{const r=await api('chaveMusica',{renovar:true});linkTxt=urlMusica(r.chave);toast('Novo link gerado. O antigo não funciona mais.');desenha();}
+      catch(e){toast('Não foi possível gerar: '+e.message);}
+    });
+    return h('div',{class:'row2'},
+      h('b',null,'Link da música (sem senha)'),
+      h('p',{class:'muted'},'Quem tem este link vê só a liturgia, sem nada do ancionato, e pode preencher os momentos da música. Envie apenas aos líderes. Se o link se espalhar, gere um novo.'),
+      inp,
+      h('div',{class:'acoes'},
+        h('button',{class:'btn sm primary',type:'button',disabled:!linkTxt,onclick:()=>copiarTexto(linkTxt,null)},icone('copy',14),'Copiar link'),
+        h('a',{class:'btn sm',target:'_blank',rel:'noopener',href:linkTxt?'https://wa.me/?text='+encodeURIComponent('Liturgia da música (preencha direto aqui): '+linkTxt):null},'Enviar por WhatsApp'),
+        novo));
+  }
+  async function alternaLink(){
+    mostrarLink=!mostrarLink;
+    if(mostrarLink&&!linkTxt){
+      try{const r=await api('chaveMusica');linkTxt=urlMusica(r.chave);}
+      catch(e){toast('Não foi possível obter o link: '+e.message);mostrarLink=false;}
+    }
+    desenha();
+  }
+
   function desenha(){
     const rolagem=$('#dlg-b')?$('#dlg-b').scrollTop:0;
+    camposMus.clear();campoVocal=null;
     corpo.replaceChildren(datalist('dl-lit',nomesPessoas()));
     corpo.append(h('div',{class:'tabs',role:'tablist'},Object.keys(LIT_TIPOS).map(k=>h('button',{type:'button',role:'tab','aria-selected':tipo===k?'true':'false',
-      onclick:()=>{tipo=k;data=proximaDataLit(k);estrutura=false;carrega();desenha();}},LIT_TIPOS[k]))));
-    const inData=h('input',{type:'date',id:'lt-data',value:data,onchange:e=>{if(e.target.value){data=e.target.value;carrega();desenha();}}});
+      onclick:()=>{flush();tipo=k;data=proximaDataLit(k);estrutura=false;carrega();desenha();sincroniza();}},LIT_TIPOS[k]))));
+    /* próximos cultos: ✓ = liturgia já organizada pelo ancionato, ♪ = a música já preencheu */
+    corpo.append(h('div',{class:'acoes chips','aria-label':'Próximos cultos'},datasChips().map(dt=>{
+      const r=S.lits[litKey(tipo,dt)],marc=(r&&r.dados?' ✓':'')+(r&&r.musicaEm?' ♪':'');
+      return h('button',{class:'btn sm'+(dt===data?' primary':''),type:'button','aria-pressed':dt===data?'true':'false',
+        title:(r&&r.dados?'Liturgia organizada. ':'')+(r&&r.musicaEm?'A música já preencheu.':''),
+        onclick:()=>{if(dt===data)return;flush();data=dt;estrutura=false;carrega();desenha();sincroniza();}},fmtCurto(dt)+marc);
+    })));
+    const inData=h('input',{type:'date',id:'lt-data',value:data,onchange:e=>{if(e.target.value){flush();data=e.target.value;carrega();desenha();sincroniza();}}});
     corpo.append(h('div',null,h('label',{for:'lt-data'},'Data do culto'),inData));
+    corpo.append(h('div',{class:'top-st'},stEl,infoMus));
+    textoInfoMus();
     corpo.append(h('p',{class:'sec-t'},'Ancionato de turno'));
-    corpo.append(h('div',{class:'g2'},L.turno.map((n,i)=>h('input',{type:'text',maxlength:'40',list:'dl-lit',placeholder:(i+1)+'º nome','aria-label':'Ancionato de turno, nome '+(i+1),value:n,
+    corpo.append(h('div',{class:'g2'},L.turno.map((n,i)=>h('input',{type:'text',maxlength:'40',list:'dl-lit',readonly:ro,placeholder:(i+1)+'º nome','aria-label':'Ancionato de turno, nome '+(i+1),value:n,
       oninput:e=>{L.turno[i]=e.target.value;guarda();}}))));
-    corpo.append(h('p',{class:'sec-t'},'Vocal'));
-    corpo.append(h('textarea',{rows:'2','aria-label':'Vocal: nomes separados por vírgula',placeholder:'Nomes separados por vírgula',list:'dl-lit',value:L.vocal||'',
-      oninput:e=>{L.vocal=e.target.value;guarda();}}));
+    corpo.append(h('p',{class:'sec-t'},'Vocal (a música também preenche)'));
+    campoVocal=h('textarea',{rows:'2','aria-label':'Vocal: nomes separados por vírgula',placeholder:'Nomes separados por vírgula',list:'dl-lit',readonly:ro,value:L.vocal||'',
+      oninput:e=>{L.vocal=e.target.value;guardaVocal(e.target.value);}});
+    corpo.append(campoVocal);
     if(estrutura){
+      corpo.append(h('p',{class:'muted'},'Atenção: se você mudar o nome ou o horário de um momento, o que a música já preencheu nele deixa de aparecer.'));
       corpo.append(h('div',{class:'g2'},campo('Título do impresso',L,'titulo'),campo('Horário do culto',L,'hora')));
     }
     L.secoes.forEach(s=>{
@@ -1823,9 +1965,17 @@ function abrirLiturgias(tipo,dataIni){
       if(estrutura)corpo.append(h('div',{class:'g2'},campo('Título da seção (opcional)',s,'t'),campo('Cabeçalho da coluna',s,'col')));
       s.l.forEach((l,i)=>{
         if(!estrutura){
+          const musica=!ehAncionato(l);
+          let campoMus=null;
+          if(musica){
+            campoMus=h('input',{type:'text',maxlength:'160',class:'mus',readonly:ro,placeholder:'Música preenche aqui','aria-label':l.m+' ('+l.h+'): preenchido pela música',value:l.x||'',
+              oninput:e=>{l.x=e.target.value;guardaMus(l.k,e.target.value);}});
+            camposMus.set(l.k,campoMus);
+          }
           corpo.append(h('div',{class:'row2'},
             h('div',{class:'top'},h('b',null,l.h+' · '+l.m),h('span',{class:'muted'},l.r.replace(/\s*\/\s*/g,' / '))),
-            h('input',{type:'text',maxlength:'160',list:'dl-lit',placeholder:s.col||'Detalhes','aria-label':l.m+' ('+l.h+'): '+(s.col||'Detalhes'),value:l.d,oninput:e=>{l.d=e.target.value;guarda();}}),
+            h('input',{type:'text',maxlength:'160',list:'dl-lit',readonly:ro,placeholder:s.col||'Detalhes','aria-label':l.m+' ('+l.h+'): '+(s.col||'Detalhes'),value:l.d,oninput:e=>{l.d=e.target.value;guarda();}}),
+            campoMus,
             l.a?h('span',{class:'muted'},'Destaque no PDF: '+l.a):null));
         }else{
           corpo.append(h('div',{class:'row2'},
@@ -1838,14 +1988,14 @@ function abrirLiturgias(tipo,dataIni){
               h('button',{class:'ibtn',type:'button','aria-label':'Remover '+l.m,onclick:()=>{s.l.splice(i,1);guarda();desenha();}},icone('x',16)))));
         }
       });
-      if(estrutura)corpo.append(h('div',null,h('button',{class:'btn sm',type:'button',onclick:()=>{s.l.push(lr('','','',''));guarda();desenha();}},icone('plus',14),'Adicionar linha')));
+      if(estrutura)corpo.append(h('div',null,h('button',{class:'btn sm',type:'button',onclick:()=>{s.l.push(Object.assign(lr('','','',''),{k:'novo'+(++uid),x:''}));guarda();desenha();}},icone('plus',14),'Adicionar linha')));
     });
     if(estrutura||(L.obs&&L.obs.trim())){
       const id='lt-obs';
-      corpo.append(h('p',{class:'sec-t'},'Observações'),h('textarea',{id:id,rows:'3','aria-label':'Observações',maxlength:'400',value:L.obs||'',oninput:e=>{L.obs=e.target.value;guarda();}}));
+      corpo.append(h('p',{class:'sec-t'},'Observações'),h('textarea',{id:id,rows:'3','aria-label':'Observações',maxlength:'400',readonly:ro,value:L.obs||'',oninput:e=>{L.obs=e.target.value;guarda();}}));
     }
     const btnPdf=h('button',{class:'btn primary',type:'button'},icone('file',15),'Baixar PDF');
-    btnPdf.addEventListener('click',async()=>{btnPdf.disabled=true;try{await pdfLiturgia(L,tipo,data);}catch(e){toast('Não foi possível gerar o PDF: '+e.message);}btnPdf.disabled=false;});
+    btnPdf.addEventListener('click',async()=>{btnPdf.disabled=true;try{await pdfLiturgia(litSaida(L),tipo,data);}catch(e){toast('Não foi possível gerar o PDF: '+e.message);}btnPdf.disabled=false;});
     const btnSv=h('button',{class:'btn so-editor',type:'button'},'Salvar como modelo');
     btnSv.addEventListener('click',async()=>{
       const m=litCompacta(L);
@@ -1859,18 +2009,28 @@ function abrirLiturgias(tipo,dataIni){
     btnRs.addEventListener('click',async()=>{
       const nova=Object.assign({},S.liturgias||{});delete nova[tipo];
       Object.keys(nova).forEach(k=>{if(Array.isArray(nova[k]))delete nova[k];});
-      if(await salvarCfg('liturgias',nova)){S.liturgias=nova;apagarRascunho(tipo,data);carrega();toast('Modelo original restaurado');desenha();}
+      if(await salvarCfg('liturgias',nova)){S.liturgias=nova;toast('Modelo original restaurado. Esta liturgia continua como está; use Limpar preenchimento para recomeçar.');desenha();}
     });
     corpo.append(h('div',{class:'acoes'},btnPdf,
-      h('button',{class:'btn',type:'button',onclick:()=>copiarTexto(textoLit(L,data))},icone('copy',15),'Copiar para WhatsApp')));
+      h('button',{class:'btn',type:'button',onclick:()=>copiarTexto(textoLit(litSaida(L),data))},icone('copy',15),'Copiar para WhatsApp')));
     corpo.append(h('div',{class:'acoes'},
-      h('button',{class:'btn',type:'button',onclick:()=>{apagarRascunho(tipo,data);carrega();desenha();toast('Preenchimento limpo');}},'Limpar preenchimento'),
+      h('button',{class:'btn so-editor',type:'button',onclick:async()=>{
+        if(!confirm('Limpar o preenchimento desta data? Isso apaga também o que a música preencheu.'))return;
+        clearTimeout(tA);clearTimeout(tM);tA=tM=null;sujoA=false;
+        try{await api('litExcluir',{tipo:tipo,data:data});delete S.lits[litKey(tipo,data)];cacheLocal();carrega();desenha();toast('Preenchimento limpo');}
+        catch(e){toast('Não foi possível limpar: '+e.message);}
+      }},'Limpar preenchimento'),
       h('button',{class:'btn so-editor',type:'button',onclick:()=>{estrutura=!estrutura;desenha();}},estrutura?'Concluir edição da estrutura':'Editar estrutura'),
+      h('button',{class:'btn so-editor',type:'button',onclick:alternaLink},icone('users',15),'Link da música'),
       estrutura?btnSv:null,estrutura?btnRs:null));
+    const pl=painelLink();if(pl)corpo.append(pl);
     const b=$('#dlg-b');if(b)b.scrollTop=rolagem;
   }
   carrega();desenha();
+  const meu={refresca:aplicaMusica};litAtual=meu;
+  dlg.addEventListener('close',()=>{flush();if(litAtual===meu)litAtual=null;},{once:true});
   abrir('Liturgias dos cultos',corpo);
+  sincroniza();
 }
 /* ---------- Histórico de pregadores ---------- */
 function abrirHistorico(){
