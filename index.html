@@ -554,7 +554,7 @@ async function chamar(action,dados){
     if(j.auth===false&&action!=='login'){sair('Sua sessão expirou. Entre novamente.');const e=new Error(j.erro||'Sessão expirada.');e.auth=true;throw e;}
     if(!j.ok){
       const m=j.erro||'Erro no servidor.';
-      if(/^(Configuração inválida|Entidade inválida|Valor inválido em|Configuração desconhecida)/.test(m))
+      if(/^(Configuração inválida|Entidade inválida|Valor inválido em|Configuração desconhecida|Ação desconhecida)/.test(m))
         throw new Error('O servidor está com uma versão antiga do Code.gs. Cole o código novo no Apps Script e publique uma Nova versão da implantação.');
       throw new Error(m);
     }
@@ -1513,9 +1513,21 @@ function abrirRodizio(){
     if(await salvarCfg('rodizio',v)){S.rodizio=v;render();fechar();toast('Ancião da semana salvo');}
     else salvarBtn.disabled=false;
   });
+  const anc=listaAnciaos().map(x=>x.nome);
+  const btnAuto=h('button',{class:'btn so-editor',type:'button',onclick:()=>{
+    if(!anc.length){toast('Cadastre os anciãos primeiro (Anciãos e pregadores).');return;}
+    let idx=0;
+    for(let i=0;i<qtd;i++){
+      const w=somaDias(ini,i*7);
+      if(trab[w]){const j=anc.findIndex(n=>nrm(n)===nrm(trab[w]));if(j>=0)idx=j+1;}
+      else{trab[w]=anc[idx%anc.length];idx++;}
+    }
+    desenha();toast('Semanas em branco preenchidas em rodízio. Revise e salve.');
+  }},icone('repeat',15),'Preencher em rodízio com todos os anciãos');
   abrir('Ancião da semana',h('div',{class:'form'},
     datalist('dl-semana',nomes),
     h('p',{class:'muted'},'Designe o ancião responsável de cada semana. Cada semana vai de sábado a sexta. Semanas em branco ficam sem ancião.'),
+    btnAuto,
     lista,
     h('div',null,h('button',{class:'btn sm',type:'button',onclick:()=>{qtd+=8;desenha();}},icone('plus',14),'Mostrar mais 8 semanas')),
     h('div',{class:'acoes so-editor'},salvarBtn,h('button',{class:'btn',type:'button',onclick:fechar},'Cancelar'))));
@@ -1701,7 +1713,7 @@ function litMontar(tipo,data){
 }
 /* Para PDF e WhatsApp: o que o ancionato e a música escreveram no mesmo momento aparece junto. */
 function litSaida(L){const c=copia(L);c.secoes.forEach(s=>s.l.forEach(l=>{l.d=[l.d,l.x].filter(Boolean).join(' - ');}));return c;}
-const urlMusica = chave => new URL('musica.html',location.href).href.split('#')[0].split('?')[0]+'#k='+chave;
+const urlMusica = chave => new URL('musica.html',location.href).href.split('#')[0].split('?')[0]+'#k='+chave+'&a='+encodeURIComponent(CONFIG.API_URL||'');   // o link leva o endereço do servidor, assim a música sempre fala com o mesmo Apps Script do painel
 function fmtQuando(iso){const d=new Date(iso);return isNaN(d)?'':pad(d.getDate())+'/'+pad(d.getMonth()+1)+' às '+pad(d.getHours())+':'+pad(d.getMinutes());}
 let litAtual=null;
 function novaLiturgia(tipo,data){
