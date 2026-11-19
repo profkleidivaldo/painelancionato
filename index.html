@@ -314,6 +314,17 @@ dialog.larga{width:min(820px,calc(100vw - 16px))}
   .f-linha{gap:8px}
   .f-cx.dt{flex:1 1 100%;margin:0}
 }
+
+/* ---------- Direção dos departamentos ---------- */
+.eq{margin:-2px 0 4px;padding:10px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--c) 45%,transparent);background:color-mix(in srgb,var(--c) 10%,var(--surface));display:grid;gap:6px;font-size:13.5px}
+.eq-p{display:grid;grid-template-columns:auto 1fr;gap:0 10px;align-items:baseline}
+.eq-r{font-size:11.5px;color:var(--muted);grid-row:span 2;min-width:96px}
+.eq-n{font-weight:600;overflow-wrap:anywhere}
+.eq-p .tel,.eq-p .muted{grid-column:2}
+.eq-p .tel{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 0}
+.eq-ed{display:grid;gap:8px}
+.eq-l{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(118px,.9fr) minmax(0,1fr) 40px;gap:6px;align-items:center}
+@media (max-width:560px){.eq-l{grid-template-columns:1fr 1fr 40px}.eq-l input[type=text]{grid-column:1/3}.eq-l input[type=tel]{grid-column:1/3;grid-row:3}.eq-l .ibtn{grid-column:3;grid-row:1}}
 </style>
 </head>
 <body>
@@ -582,7 +593,7 @@ function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTi
 const S = {
   token:'',usuario:'',perfil:'editor',eventos:[],tarefas:[],pessoas:[],usuarios:[],metas:Object.assign({},META_PADRAO),
   rodizio:{semanas:{}},liturgias:null,lits:{},catsVisita:[],
-  deptos:DEPTOS_PADRAO.map(p=>({nome:p[0],cor:p[1],responsavel:'',apoio:[]})),
+  deptos:DEPTOS_PADRAO.map(p=>({nome:p[0],cor:p[1],responsavel:'',apoio:[],equipe:[]})),
   mes:new Date(new Date().getFullYear(),new Date().getMonth(),1,12),
   tipos:new Set(),depto:'',busca:'',vista:'cal',poll:null
 };
@@ -779,7 +790,8 @@ function entrar(){
 /* ---------- Dados ---------- */
 function setSync(t){const n=lerFila().length;$('#sync').textContent=t+(n?' · '+n+' pendente'+(n>1?'s':''):'');}
 function normDepto(d){
-  return {nome:String(d.nome||''),cor:/^#[0-9a-f]{6}$/i.test(d.cor||'')?d.cor:'#6b7a80',responsavel:String(d.responsavel||''),apoio:Array.isArray(d.apoio)?d.apoio.map(String):[]};
+  return {nome:String(d.nome||''),cor:/^#[0-9a-f]{6}$/i.test(d.cor||'')?d.cor:'#6b7a80',responsavel:String(d.responsavel||''),apoio:Array.isArray(d.apoio)?d.apoio.map(String):[],
+    equipe:(Array.isArray(d.equipe)?d.equipe:[]).map(e=>({n:String(e.n||'').trim(),f:e.f==='associado'?'associado':'diretor',t:String(e.t||'').trim()})).filter(e=>e.n)};
 }
 function norm(r){
   S.eventos=(r.eventos||[]).slice();
@@ -1023,6 +1035,18 @@ function cardVisitacao(){
     h('div',{class:'rodape'},h('button',{class:'btn sm so-editor',type:'button',onclick:()=>abrirEvento({tipo:'visita',data:hojeIso(),status:'feito'})},icone('plus',14),'Registrar visita'))
   ]);
 }
+/* Direção do departamento: diretores e associados, com telefone para ligar ou chamar no WhatsApp. */
+function blocoEquipe(d){
+  const ordem={diretor:0,associado:1},eq=d.equipe.slice().sort((a,b)=>ordem[a.f]-ordem[b.f]);
+  const rot={diretor:'Diretor(a)',associado:'Associado(a)'};
+  const linhas=[];
+  if(d.responsavel){const p=buscaPessoa(d.responsavel);linhas.push({n:d.responsavel,r:'Ancião responsável',t:p&&p.telefone||''});}
+  eq.forEach(m=>linhas.push({n:m.n,r:rot[m.f],t:m.t}));
+  return h('div',{class:'eq',style:'--c:'+d.cor},
+    h('b',null,'Direção de '+d.nome),
+    linhas.length?linhas.map(m=>h('div',{class:'eq-p'},h('span',{class:'eq-r'},m.r),h('span',{class:'eq-n'},m.n),m.t?linksTel(m.t):h('span',{class:'muted'},'sem telefone')))
+      :h('p',{class:'muted'},'Ninguém cadastrado ainda.'+(pode()?' Use a engrenagem do cartão para incluir diretores e associados.':'')));
+}
 function cardDeptos(){
   const lista=h('div',{class:'deps'});
   S.deptos.forEach(d=>{
@@ -1030,7 +1054,9 @@ function cardDeptos(){
     const papel=[d.responsavel&&('Ancião: '+d.responsavel),d.apoio.length&&('Apoio: '+d.apoio.join(', '))].filter(Boolean).join(' · ');
     lista.append(h('button',{class:'dep'+(S.depto&&!on?' off':''),type:'button',style:'--c:'+d.cor,'aria-pressed':on?'true':'false',
       title:on?'Limpar filtro':'Ver só '+d.nome+' no calendário',onclick:()=>{S.depto=on?'':d.nome;render();}},
-      h('span',{class:'dp'}),h('span',{class:'tx'},h('b',null,d.nome),h('small',null,papel||'Sem ancião responsável'))));
+      h('span',{class:'dp'}),h('span',{class:'tx'},h('b',null,d.nome),h('small',null,papel||'Sem ancião responsável'),
+        d.equipe.length?h('small',null,d.equipe.length+(d.equipe.length>1?' pessoas':' pessoa')+' na direção'+(on?'':' · toque para ver')):null)));
+    if(on)lista.append(blocoEquipe(d));
   });
   const abertas=S.tarefas.filter(t=>!t.feito&&(!S.depto||t.depto===S.depto)).sort((a,b)=>(a.prazo||'9999').localeCompare(b.prazo||'9999'));
   const total=abertas.length;
@@ -1469,7 +1495,7 @@ function cardFerramentas(){
 function abrirDeptos(){
   if(!pode()){toast('Seu acesso é somente de leitura.');return;}
   const anc=listaAnciaos().map(a=>a.nome);
-  const trab=S.deptos.map(d=>({nome:d.nome,cor:d.cor,responsavel:d.responsavel,apoio:d.apoio.slice()}));
+  const trab=S.deptos.map(d=>({nome:d.nome,cor:d.cor,responsavel:d.responsavel,apoio:d.apoio.slice(),equipe:d.equipe.map(e=>Object.assign({},e))}));
   const abertos=new Set();
   const area=h('div',{class:'form'});
   function desenha(){
@@ -1485,6 +1511,16 @@ function abrirDeptos(){
       const apoio=h('div',{class:'apoio'},apoioOpc.map(n=>h('label',{class:'check'},
         h('input',{type:'checkbox',checked:d.apoio.some(a=>mesmo(a,n)),onchange:e=>{
           d.apoio=d.apoio.filter(a=>!mesmo(a,n));if(e.target.checked)d.apoio.push(n);desenha();}}),n)));
+      const equipeEd=h('div',{class:'eq-ed'},
+        d.equipe.map((m,i)=>h('div',{class:'eq-l'},
+          h('input',{type:'text',list:'dl-eq',maxlength:'60',placeholder:'Nome','aria-label':'Nome do membro da direção de '+d.nome,value:m.n,
+            oninput:e=>{m.n=e.target.value;},
+            onchange:e=>{if(!m.t){const p=buscaPessoa(m.n);if(p&&p.telefone){m.t=p.telefone;desenha();}}}}),
+          h('select',{'aria-label':'Função de '+(m.n||'membro'),value:m.f,onchange:e=>{m.f=e.target.value;}},
+            h('option',{value:'diretor'},'Diretor(a)'),h('option',{value:'associado'},'Associado(a)')),
+          h('input',{type:'tel',maxlength:'25',placeholder:'Telefone','aria-label':'Telefone de '+(m.n||'membro'),value:m.t,oninput:e=>{m.t=e.target.value;}}),
+          h('button',{class:'ibtn',type:'button','aria-label':'Remover '+(m.n||'membro'),onclick:()=>{d.equipe.splice(i,1);desenha();}},icone('x',16)))),
+        h('button',{class:'btn sm',type:'button',onclick:()=>{d.equipe.push({n:'',f:d.equipe.some(x=>x.f==='diretor')?'associado':'diretor',t:''});desenha();}},icone('plus',14),'Adicionar diretor ou associado'));
       let armado=false;
       const bRem=h('button',{class:'btn sm danger',type:'button'},'Remover departamento');
       bRem.addEventListener('click',()=>{
@@ -1492,12 +1528,13 @@ function abrirDeptos(){
         if(trab.length<=1){toast('Mantenha pelo menos um departamento.');return;}
         trab.splice(idx,1);desenha();
       });
-      const resumo=(d.responsavel||'sem responsável')+(d.apoio.length?' · +'+d.apoio.length+' apoio':'');
+      const resumo=(d.responsavel||'sem responsável')+(d.apoio.length?' · +'+d.apoio.length+' apoio':'')+(d.equipe.length?' · '+d.equipe.length+' na direção':'');
       const det=h('details',{class:'dd',style:'--c:'+d.cor},
         h('summary',null,h('span',{class:'dot'}),d.nome,h('span',{class:'resumo'},resumo)),
         h('div',{class:'dd-b'},
           h('div',null,h('label',null,'Ancião que promove o departamento'),sel),
           h('div',null,h('label',null,'Anciãos que apoiam'),apoioOpc.length?apoio:h('p',{class:'muted'},'Nenhum outro ancião disponível.')),
+          h('div',null,h('label',null,'Direção do departamento (diretores e associados)'),equipeEd),
           h('div',{class:'acoes'},h('label',{class:'check'},'Cor ',h('input',{type:'color',value:d.cor,'aria-label':'Cor de '+d.nome,onchange:e=>{d.cor=e.target.value;det.style.setProperty('--c',d.cor);}})),bRem)));
       if(abertos.has(d.nome))det.setAttribute('open','');
       det.addEventListener('toggle',()=>{if(det.open)abertos.add(d.nome);else abertos.delete(d.nome);});
@@ -1511,20 +1548,21 @@ function abrirDeptos(){
     const n=inNovo.value.trim();if(!n)return;
     if(trab.some(d=>mesmo(d.nome,n))){toast('Esse departamento já existe.');return;}
     if(trab.length>=40){toast('Limite de 40 departamentos.');return;}
-    trab.push({nome:n,cor:PALETA[trab.length%PALETA.length],responsavel:'',apoio:[]});inNovo.value='';abertos.add(n);desenha();
+    trab.push({nome:n,cor:PALETA[trab.length%PALETA.length],responsavel:'',apoio:[],equipe:[]});inNovo.value='';abertos.add(n);desenha();
   });
   const btnPadrao=h('button',{class:'btn sm',type:'button'},'Incluir os departamentos padrão que faltam');
   btnPadrao.addEventListener('click',()=>{
-    let n=0;DEPTOS_PADRAO.forEach(p=>{if(!trab.some(d=>mesmo(d.nome,p[0]))&&trab.length<40){trab.push({nome:p[0],cor:p[1],responsavel:'',apoio:[]});n++;}});
+    let n=0;DEPTOS_PADRAO.forEach(p=>{if(!trab.some(d=>mesmo(d.nome,p[0]))&&trab.length<40){trab.push({nome:p[0],cor:p[1],responsavel:'',apoio:[],equipe:[]});n++;}});
     desenha();toast(n?n+' departamento'+(n>1?'s':'')+' incluído'+(n>1?'s':''):'Todos os padrões já estão na lista.');
   });
   const salvarBtn=h('button',{class:'btn primary',type:'button'},'Salvar departamentos');
   salvarBtn.addEventListener('click',async()=>{
     salvarBtn.disabled=true;
+    trab.forEach(d=>{d.equipe=d.equipe.map(e=>({n:e.n.trim(),f:e.f,t:e.t.trim()})).filter(e=>e.n);});
     if(await salvarCfg('deptos',trab)){S.deptos=trab.map(normDepto);if(S.depto&&!deptoPorNome(S.depto))S.depto='';render();fechar();toast('Departamentos salvos');}
     else salvarBtn.disabled=false;
   });
-  abrir('Departamentos e anciãos',h('div',{class:'form'},
+  abrir('Departamentos e anciãos',h('div',{class:'form'},datalist('dl-eq',nomesPessoas()),
     h('p',{class:'muted'},'Defina o ancião que promove cada departamento e quem o apoia. Essa informação aparece no cartão, nos eventos, nas tarefas e na agenda de cada ancião.'),
     area,
     h('div',{class:'g2'},inNovo,btnAdd),
