@@ -264,6 +264,56 @@ input[type=color]{width:44px;height:36px;padding:2px;border:1px solid var(--line
   .ver dd{margin-bottom:8px}
 }
 @media (prefers-reduced-motion:no-preference){.cell,.chip,.btn{transition:box-shadow .12s,background-color .12s}}
+
+/* ---------- Folha da liturgia (parecida com o impresso) ---------- */
+dialog.larga{width:min(820px,calc(100vw - 16px))}
+.folha{background:var(--fbg);color:#000;font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.3;border-radius:6px;padding:14px 16px 20px;box-shadow:0 0 0 1px rgba(0,0,0,.1),0 6px 18px rgba(0,0,0,.12);color-scheme:light}
+.folha *{box-sizing:border-box}
+.folha table{border-collapse:collapse;width:100%;table-layout:fixed}
+.f-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.f-tit{display:inline-block;text-align:center;padding-top:6px}
+.f-tit h2{margin:0;font:700 clamp(26px,6vw,40px)/1.1 Arial,Helvetica,sans-serif;color:#1f3864}
+.f-tit .f-hora{display:block;margin-top:6px;font:700 clamp(16px,3.4vw,22px) Arial,Helvetica,sans-serif;color:#1f3864}
+.f-logo{flex:none;width:clamp(110px,27%,190px);height:auto;display:block;margin:-14px -16px 0 0;mix-blend-mode:multiply}
+.f-linha{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;margin-top:14px}
+.f-cx{flex:1 1 0;min-width:0}
+.f-cx.turno{flex:1 1 300px}.f-cx.dt{flex:0 0 250px;margin-left:auto}
+.f-cx.dt:only-child{margin:0 auto}
+.f-cx.voc{flex:0 1 70%;margin:0 auto}
+.f-cx th{padding:4px 6px;font:700 13px Arial,Helvetica,sans-serif;color:#1f3864;text-align:center;border-top:1px solid var(--flinha);border-bottom:1px solid var(--flinha)}
+.f-cx td{padding:2px 4px;white-space:nowrap;text-align:center;background:var(--ffaixa);border-bottom:1px solid var(--flinha);font-size:14px;min-height:26px}
+.f-cx td.cap{text-transform:capitalize}
+.f-sec{margin:22px 0 10px;text-align:center;font:700 clamp(22px,4.6vw,30px)/1.15 Arial,Helvetica,sans-serif;color:#1f3864}
+.f-quebra{margin:20px 0 0;border-top:2px dashed rgba(0,0,0,.28);text-align:center;font-size:11px;color:rgba(0,0,0,.55);padding-top:3px}
+.f-prog{margin-top:12px}
+.f-prog thead th{padding:6px 4px;font:700 13px Arial,Helvetica,sans-serif;color:#1f3864;text-align:center;border-bottom:1px solid var(--flinha)}
+.f-prog tbody tr:nth-child(odd){background:var(--ffaixa)}
+.f-prog td{padding:3px 5px;vertical-align:middle;font-size:13px}
+.f-prog td.m{text-align:left}.f-prog td.hr{text-align:center}.f-prog td.d{text-align:center;padding:2px 3px}.f-prog td.r{text-align:right;font-size:13px}
+.f-prog tbody tr:last-child td{border-bottom:1px solid var(--flinha)}
+.f-txt{padding:2px 3px;text-align:center}
+.f-red{display:block;margin-top:1px;color:#f00;font-weight:700;font-size:12px;text-align:center}
+.folha input[type=text],.folha textarea{width:100%;min-height:0;height:auto;padding:3px 4px;margin:0;border:0;border-radius:0;background:transparent;color:#000;font:inherit;text-align:center;box-shadow:inset 0 -1px 0 rgba(0,0,0,.12)}
+.folha textarea{resize:none;overflow:hidden;min-height:0;display:block}
+.folha input[type=text]::placeholder,.folha textarea::placeholder{color:rgba(0,0,0,.38);font-size:12px}
+.folha input[type=text]:hover,.folha textarea:hover{box-shadow:inset 0 -1px 0 rgba(0,0,0,.45)}
+.folha input[type=text]:focus,.folha textarea:focus{outline:0;background:rgba(255,255,255,.75);box-shadow:inset 0 -2px 0 #1f3864}
+.folha input[type=text].mus{background:rgba(255,255,255,.5);border:0;box-shadow:inset 0 -1px 0 rgba(0,0,0,.2);margin-top:2px}
+.folha input[type=text].mus:focus{background:rgba(255,255,255,.85)}
+.folha input[readonly],.folha textarea[readonly],.folha input:disabled,.folha textarea:disabled{opacity:1;cursor:default;box-shadow:none}
+.f-obs{margin-top:20px;text-align:center}
+.f-obs b{display:block;font:700 12px Arial,Helvetica,sans-serif;color:#1f3864;letter-spacing:.04em;margin-bottom:3px}
+.f-obs textarea{min-height:48px;overflow:auto;font-size:13px}
+@media (max-width:560px){
+  .folha{padding:10px 8px 16px}
+  .f-logo{margin:-10px -8px 0 0}
+  .f-prog td,.f-prog td.r{font-size:11.5px;padding:3px 3px}
+  .f-prog thead th{font-size:11.5px}
+  .folha input[type=text],.folha textarea{font-size:13px;padding:3px 2px}
+  .f-cx td{font-size:12.5px}
+  .f-linha{gap:8px}
+  .f-cx.dt{flex:1 1 100%;margin:0}
+}
 </style>
 </head>
 <body>
@@ -1843,6 +1893,33 @@ async function pdfLiturgia(L,tipo,data){
   doc.save('liturgia-'+tipo+'-'+data+'.pdf');
 }
 
+
+/* Folha da liturgia: mesma cara do impresso (cores, título, caixas, tabela listrada). */
+function folha(o){
+  const T=o.tema,rgb=c=>'rgb('+c[0]+','+c[1]+','+c[2]+')';
+  const cx=(cls,tit,linhas)=>h('div',{class:'f-cx '+cls},h('table',null,h('thead',null,h('tr',null,h('th',{colspan:linhas[0].length},tit))),h('tbody',null,linhas.map(l=>h('tr',null,l)))));
+  const kids=[];
+  kids.push(h('div',{class:'f-top'},
+    h('div',{class:'f-tit'},h('h2',null,o.titulo),h('span',{class:'f-hora'},o.hora)),
+    o.logo?h('img',{class:'f-logo',src:o.logo,alt:'Igreja Adventista do Sétimo Dia Nova Brasília'}):null));
+  kids.push(h('div',{class:'f-linha'},
+    o.turno?cx('turno','Ancionato de Turno',[o.turno.map(n=>h('td',null,n))]):null,
+    cx('dt','Data',[[h('td',null,o.data.dia),h('td',{class:'cap'},o.data.mes),h('td',null,o.data.ano)]])));
+  if(o.vocal)kids.push(h('div',{class:'f-linha'},cx('voc','Vocal',[[h('td',null,o.vocal)]])));
+  o.secoes.forEach((s,si)=>{
+    if(s.q&&si>0)kids.push(h('div',{class:'f-quebra'},'Nova página no impresso'));
+    if(s.t)kids.push(h('div',{class:'f-sec'},s.t));
+    kids.push(h('table',{class:'f-prog'},
+      h('colgroup',null,h('col',{style:'width:30%'}),h('col',{style:'width:12%'}),h('col',{style:'width:39%'}),h('col',{style:'width:19%'})),
+      h('thead',null,h('tr',null,['Momento','Horário',s.col||'Detalhes','Responsável'].map(t=>h('th',null,t)))),
+      h('tbody',null,s.linhas.map(l=>h('tr',null,
+        h('td',{class:'m'},l.m),h('td',{class:'hr'},l.h),
+        h('td',{class:'d'},l.det,l.a?h('span',{class:'f-red'},l.a):null),
+        h('td',{class:'r'},String(l.r||'').split(/\s*\/\s*/).filter(Boolean).map((p,i)=>[i?h('br'):null,p])))))));
+  });
+  if(o.obs)kids.push(h('div',{class:'f-obs'},h('b',null,'OBSERVAÇÕES'),o.obs));
+  return h('div',{class:'folha',style:'--fbg:'+rgb(T.bg)+';--ffaixa:'+rgb(T.faixa)+';--flinha:'+rgb(T.linha)},kids);
+}
 function abrirLiturgias(tipo,dataIni){
   tipo=LIT_TIPOS[tipo]?tipo:'sabado';
   let data=dataIni||proximaDataLit(tipo),L=null,estrutura=false,uid=0,mostrarLink=false,linkTxt='';
@@ -1944,6 +2021,23 @@ function abrirLiturgias(tipo,dataIni){
     desenha();
   }
 
+  function folhaEd(){
+    const dt=dataLit(data);
+    const turno=L.turno.map((n,i)=>h('input',{type:'text',maxlength:'40',list:'dl-lit',readonly:ro,'aria-label':'Ancionato de turno, nome '+(i+1),value:n,
+      oninput:e=>{L.turno[i]=e.target.value;guarda();}}));
+    campoVocal=h('textarea',{rows:'2','aria-label':'Vocal: nomes separados por vírgula',placeholder:'Vocal: nomes separados por vírgula',list:'dl-lit',readonly:ro,value:L.vocal||'',
+      oninput:e=>{L.vocal=e.target.value;guardaVocal(e.target.value);}});
+    return folha({tema:LIT_TEMAS[LIT_MODELOS[tipo].tema],titulo:L.titulo,hora:L.hora,logo:LOGO_IGREJA,turno:turno,data:dt,vocal:campoVocal,
+      secoes:L.secoes.map(s=>({t:s.t,q:s.q,col:s.col,linhas:s.l.map(l=>{
+        const det=[h('input',{type:'text',maxlength:'160',list:'dl-lit',readonly:ro,placeholder:'','aria-label':l.m+' ('+l.h+'): '+(s.col||'Detalhes'),value:l.d,oninput:e=>{l.d=e.target.value;guarda();}})];
+        if(!ehAncionato(l)){
+          const cm=h('input',{type:'text',maxlength:'160',class:'mus',readonly:ro,placeholder:'♪ música preenche','aria-label':l.m+' ('+l.h+'): preenchido pela música',value:l.x||'',
+            oninput:e=>{l.x=e.target.value;guardaMus(l.k,e.target.value);}});
+          camposMus.set(l.k,cm);det.push(cm);
+        }
+        return {m:l.m,h:l.h,r:l.r,a:l.a,det:det};})})),
+      obs:(L.obs&&L.obs.trim())?h('textarea',{rows:'2','aria-label':'Observações',maxlength:'400',readonly:ro,value:L.obs||'',oninput:e=>{L.obs=e.target.value;guarda();}}):null});
+  }
   function desenha(){
     const rolagem=$('#dlg-b')?$('#dlg-b').scrollTop:0;
     camposMus.clear();campoVocal=null;
@@ -1961,6 +2055,7 @@ function abrirLiturgias(tipo,dataIni){
     corpo.append(h('div',null,h('label',{for:'lt-data'},'Data do culto'),inData));
     corpo.append(h('div',{class:'top-st'},stEl,infoMus));
     textoInfoMus();
+    if(!estrutura){corpo.append(folhaEd());}else{
     corpo.append(h('p',{class:'sec-t'},'Ancionato de turno'));
     corpo.append(h('div',{class:'g2'},L.turno.map((n,i)=>h('input',{type:'text',maxlength:'40',list:'dl-lit',readonly:ro,placeholder:(i+1)+'º nome','aria-label':'Ancionato de turno, nome '+(i+1),value:n,
       oninput:e=>{L.turno[i]=e.target.value;guarda();}}))));
@@ -2006,6 +2101,7 @@ function abrirLiturgias(tipo,dataIni){
       const id='lt-obs';
       corpo.append(h('p',{class:'sec-t'},'Observações'),h('textarea',{id:id,rows:'3','aria-label':'Observações',maxlength:'400',readonly:ro,value:L.obs||'',oninput:e=>{L.obs=e.target.value;guarda();}}));
     }
+    }
     const btnPdf=h('button',{class:'btn primary',type:'button'},icone('file',15),'Baixar PDF');
     btnPdf.addEventListener('click',async()=>{btnPdf.disabled=true;try{await pdfLiturgia(litSaida(L),tipo,data);}catch(e){toast('Não foi possível gerar o PDF: '+e.message);}btnPdf.disabled=false;});
     const btnSv=h('button',{class:'btn so-editor',type:'button'},'Salvar como modelo');
@@ -2040,7 +2136,8 @@ function abrirLiturgias(tipo,dataIni){
   }
   carrega();desenha();
   const meu={refresca:aplicaMusica};litAtual=meu;
-  dlg.addEventListener('close',()=>{flush();if(litAtual===meu)litAtual=null;},{once:true});
+  dlg.addEventListener('close',()=>{flush();dlg.classList.remove('larga');if(litAtual===meu)litAtual=null;},{once:true});
+  dlg.classList.add('larga');
   abrir('Liturgias dos cultos',corpo);
   sincroniza();
 }
