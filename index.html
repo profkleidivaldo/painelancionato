@@ -1421,8 +1421,8 @@ function abrirSenha(){
 const nrm = s => String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
 const casa = (campo,nome) => {const a=nrm(campo),b=nrm(nome);return !!a&&!!b&&(a.indexOf(b)>=0||b.indexOf(a)>=0);};
 function somaDias(iso,n){const d=parse(iso);d.setDate(d.getDate()+n);return isoOf(d);}
-/* A semana do ancião vai de sábado a sexta. */
-function inicioSemana(iso){const d=parse(iso);d.setDate(d.getDate()-((d.getDay()+1)%7));return isoOf(d);}
+/* A semana do ancião vai de domingo a sábado. */
+function inicioSemana(iso){const d=parse(iso);d.setDate(d.getDate()-d.getDay());return isoOf(d);}
 function anciaoNaSemana(iso,r){
   if(!r||!r.semanas||!iso)return '';
   return r.semanas[inicioSemana(iso)]||'';
@@ -1430,7 +1430,12 @@ function anciaoNaSemana(iso,r){
 /* Converte o rodízio antigo (lista + data de início) em designações por semana, sem mudar quem estava escalado. */
 function migraRodizio(r){
   r=r||{};
-  if(r.semanas&&typeof r.semanas==='object')return {semanas:Object.assign({},r.semanas)};
+  if(r.semanas&&typeof r.semanas==='object'){
+    /* Designações antigas eram por semana sábado-sexta (chave = sábado). Passam para domingo-sábado: a chave vira o domingo seguinte. */
+    const sem={};
+    Object.keys(r.semanas).forEach(k=>{sem[parse(k).getDay()===6?somaDias(k,1):k]=r.semanas[k];});
+    return {semanas:sem};
+  }
   const sem={};
   if(Array.isArray(r.anciaos)&&r.anciaos.length&&r.inicio){
     const n=r.anciaos.length,i0=parse(inicioSemana(r.inicio)),hoje=inicioSemana(hojeIso());
@@ -1614,7 +1619,7 @@ function abrirRodizio(){
   }},icone('repeat',15),'Preencher em rodízio com todos os anciãos');
   abrir('Ancião da semana',h('div',{class:'form'},
     datalist('dl-semana',nomes),
-    h('p',{class:'muted'},'Designe o ancião responsável de cada semana. Cada semana vai de sábado a sexta. Semanas em branco ficam sem ancião.'),
+    h('p',{class:'muted'},'Designe o ancião responsável de cada semana. Cada semana vai de domingo a sábado. Semanas em branco ficam sem ancião.'),
     btnAuto,
     lista,
     h('div',null,h('button',{class:'btn sm',type:'button',onclick:()=>{qtd+=8;desenha();}},icone('plus',14),'Mostrar mais 8 semanas')),
@@ -2237,9 +2242,9 @@ function calcAlertas(){
   const out=[],hoje=hojeIso(),lim2=somaDias(hoje,2),lim21=somaDias(hoje,21);
   const sem=inicioSemana(hoje),aw=anciaoDaSemana(hoje);
   if(aw){
-    out.push({nivel:'info',txt:'Ancião da semana: '+aw+' (até sex '+fmtDM(somaDias(sem,6))+').'});
+    out.push({nivel:'info',txt:'Ancião da semana: '+aw+' (até sáb '+fmtDM(somaDias(sem,6))+').'});
     const prox=anciaoDaSemana(somaDias(sem,7));
-    if(prox&&prox!==aw)out.push({nivel:'info',txt:'A partir de sáb '+fmtDM(somaDias(sem,7))+': '+prox+'.'});
+    if(prox&&prox!==aw)out.push({nivel:'info',txt:'A partir de dom '+fmtDM(somaDias(sem,7))+': '+prox+'.'});
   }
   S.eventos.filter(e=>e.data>=hoje&&e.data<=lim2).sort(ordemEv).forEach(e=>{
     out.push({nivel:'info',txt:(e.data===hoje?'Hoje':e.data===somaDias(hoje,1)?'Amanhã':fmtCurto(e.data))+': '+(e.titulo||tipoDe(e).nome)+(e.hora?' às '+e.hora:'')+'.'});
