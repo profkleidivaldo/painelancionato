@@ -342,7 +342,7 @@ const LIT_TEMAS = {
   verde:{bg:[225,239,216],faixa:[202,225,187],linha:[112,173,71]}
 };
 /* Mesmo endereço do Apps Script usado no painel dos anciãos (termina em /exec). */
-const API_URL = 'https://script.google.com/macros/s/AKfycbxDJraGoYBYm0RZ9ulDkeRQZQ3OH4luxxkjHSgsoE7-Y75nhQe7R_fqeysh-fj_k1bm/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxoJ8gKnlEGxLg8mZsxVi1RB2jvv-0Iyev3hx5zBtYemQ0hVSBguEqBVTT4ntUrV7kA/exec';
 const CHAVE_KEY='painel_musica_chave', NOME_KEY='painel_musica_nome';
 const $ = s => document.querySelector(s);
 function h(tag,props,...kids){
@@ -447,8 +447,10 @@ const LIT_MODELOS = {
       lr('Oração final','20:43','','M. Infantil')]}]}
 };
 
-/* Linha que é só do ancionato: aparece sem conteúdo e sem campo. */
-const ehAncionato = l => {const r=String(l.r||'').trim();return !!r&&r.split('/').every(p=>/ancionato/i.test(p));};
+/* Só as linhas em que a Música é responsável (ex.: "M. Música" ou "M. Diaconato / M. Música") têm conteúdo e campo.
+   Todas as outras (ancionato, mídia, infantil, secretaria…) continuam na tabela, mas sem conteúdo e sem campo. */
+const ehDaMusica = l => String(l.r||'').split('/').some(p=>/m[úu]sica/i.test(p));
+const foraDaMusica = l => !ehDaMusica(l);
 function chaves(secoes){const c={};secoes.forEach(s=>s.l.forEach(l=>{const b=l.m+'|'+l.h;c[b]=(c[b]||0)+1;l.k=c[b]>1?b+'#'+c[b]:b;}));}
 
 /* ---------- Estado ---------- */
@@ -469,8 +471,8 @@ function estruturaDe(j){
   const e=j.estrutura?{titulo:j.estrutura.titulo,hora:j.estrutura.hora,obs:j.estrutura.obs||'',
     secoes:j.estrutura.secoes.map(s=>({t:s.t||'',col:s.col||'Detalhes',q:!!s.q,l:(s.l||[]).map(a=>({m:a[0]||'',h:a[1]||'',d:a[2]||'',r:a[3]||'',a:a[4]||''}))}))}
     :JSON.parse(JSON.stringify(LIT_MODELOS[tipo]));
-  /* nas linhas do ancionato o conteúdo nunca vem do servidor; no modelo original também não */
-  e.secoes.forEach(s=>s.l.forEach(l=>{if(ehAncionato(l))l.d='';}));
+  /* nas linhas que não são da música o conteúdo nunca vem do servidor; no modelo original também não */
+  e.secoes.forEach(s=>s.l.forEach(l=>{if(foraDaMusica(l)){l.d='';l.a='';}}));
   chaves(e.secoes);
   return e;
 }
@@ -590,7 +592,7 @@ function desenha(){
     secoes:E.secoes.map(s=>({t:s.t,q:s.q,col:s.col,linhas:s.l.map(l=>{
       const det=[];
       if(l.d)det.push(h('div',{class:'f-txt'},l.d));
-      if(!ehAncionato(l)){
+      if(ehDaMusica(l)){
         const inp=h('input',{type:'text',maxlength:'160',class:'mus',disabled:!editavel,placeholder:'Escreva aqui (hino, cantor, vídeo…)','aria-label':l.m+' ('+l.h+')',value:(musica.m&&musica.m[l.k])||'',
           oninput:e=>{pendM[l.k]=e.target.value;agenda();}});
         campos.set(l.k,inp);det.push(inp);
