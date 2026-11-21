@@ -1,7 +1,7 @@
 /* Service worker do Painel do Ancião: deixa o app abrir e funcionar sem internet.
    Os dados em si ficam guardados no aparelho pelo próprio app (index.html).
    Ao publicar uma nova versão do index.html, aumente o número em VERSAO. */
-const VERSAO = 'painel-v3';
+const VERSAO = 'painel-v4';
 const LOCAIS = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'];
 const EXTERNOS = [
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
@@ -39,10 +39,12 @@ self.addEventListener('fetch', e => {
 /* Página: abre na hora o que está guardado e atualiza em segundo plano para a próxima abertura. */
 async function pagina(e) {
   const c = await caches.open(VERSAO);
-  /* A página da música (musica.html) tem a sua própria cópia; qualquer outra abertura usa o painel. */
-  const ehMusica = /\/musica\.html$/.test(new URL(e.request.url).pathname);
-  const chave = ehMusica ? 'musica.html' : 'index.html';
-  const guardada = (await c.match(chave)) || (ehMusica ? null : await c.match('./'));
+  /* Páginas públicas dos ministérios (musica.html, escolasabatina.html…) têm cada uma a sua própria cópia
+     e NUNCA recebem o painel dos anciãos. Só a raiz, index.html e endereços desconhecidos abrem o painel. */
+  const nome = new URL(e.request.url).pathname.split('/').pop().toLowerCase();
+  const outra = /\.html$/.test(nome) && nome !== 'index.html';
+  const chave = outra ? nome : 'index.html';
+  const guardada = (await c.match(chave)) || (outra ? null : await c.match('./'));
   const rede = fetch(e.request).then(r => { if (r && r.ok) c.put(chave, r.clone()); return r; }).catch(() => null);
   if (guardada) { e.waitUntil(rede); return guardada; }
   return (await rede) || new Response('Sem internet e o app ainda não foi guardado. Abra uma vez com internet.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
