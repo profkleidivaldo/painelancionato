@@ -403,7 +403,7 @@ dialog.larga{width:min(820px,calc(100vw - 16px))}
    Deixe vazio para abrir em modo demonstração (sem servidor).
    ===================================================================== */
 const CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycbxoJ8gKnlEGxLg8mZsxVi1RB2jvv-0Iyev3hx5zBtYemQ0hVSBguEqBVTT4ntUrV7kA/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbzQDykT3G4V3XFSUp_A0qs7rJxO9lZC7SoFFBlbUoVwhcdc40Jr2RhmoRY3Xt4IjbBw/exec',
   TITULO: 'Painel do Ancionato',
   SIGLA: 'IASD Nova Brasilia'
 };
@@ -599,7 +599,7 @@ const S = {
 };
 
 /* ---------- API (Apps Script) ---------- */
-const ESCRITAS=['salvar','excluir','config','litSalvar','litExcluir','litMusica'];
+const ESCRITAS=['salvar','excluir','config','litSalvar','litExcluir','litMusica','litEscola'];
 function erroRede(msg){const e=new Error(msg||'Sem conexão com o servidor.');e.rede=true;return e;}
 async function chamar(action,dados){
   if(navigator.onLine===false)throw erroRede();
@@ -635,8 +635,8 @@ function enfileirar(action,dados){
   if(action==='config'){const i=f.findIndex(x=>x.action==='config'&&x.dados.chave===dados.chave);if(i>=0)f.splice(i,1);}
   const mesma=x=>x.dados&&x.dados.tipo===dados.tipo&&x.dados.data===dados.data;
   if(action==='litSalvar'){for(let i=f.length-1;i>=0;i--)if(f[i].action==='litSalvar'&&mesma(f[i]))f.splice(i,1);}   // só a última versão da liturgia precisa ir
-  if(action==='litMusica'){
-    let i=-1;for(let j=f.length-1;j>=0;j--){if(f[j].action==='litExcluir'&&mesma(f[j]))break;if(f[j].action==='litMusica'&&mesma(f[j])){i=j;break;}}
+  if(action==='litMusica'||action==='litEscola'){
+    let i=-1;for(let j=f.length-1;j>=0;j--){if(f[j].action==='litExcluir'&&mesma(f[j]))break;if(f[j].action===action&&mesma(f[j])){i=j;break;}}
     if(i>=0){const d0=f[i].dados.delta=f[i].dados.delta||{m:{}};d0.m=Object.assign({},d0.m,dados.delta.m);if(dados.delta.v!==undefined)d0.v=dados.delta.v;gravarFila(f);setSync(navigator.onLine===false?'Offline':'Aguardando envio');return;}
   }
   f.push({action:action,dados:dados});gravarFila(f);
@@ -730,6 +730,15 @@ async function demoApi(action,dados){
     return {ok:true,eventos:d.eventos,tarefas:d.tarefas,pessoas:d.pessoas,usuarios:us.map(n=>({nome:n,perfil:'editor'})),config:d.config,perfil:'editor',liturgias:d.liturgias||[]};
   }
   if(action==='litListar')return {ok:true,liturgias:d.liturgias||[]};
+  if(action==='litEscola'){
+    d.liturgias=d.liturgias||[];const id=dados.tipo+'_'+dados.data;let r=d.liturgias.find(x=>x.id===id);
+    if(!r){r={id:id,tipo:dados.tipo,data:dados.data,dados:null,musica:{v:'',m:{}}};d.liturgias.push(r);}
+    r.escola=r.escola||{v:'',m:{}};
+    Object.keys(dados.delta.m||{}).forEach(k=>{if(dados.delta.m[k])r.escola.m[k]=dados.delta.m[k];else delete r.escola.m[k];});
+    r.escolaPor=S.usuario+' (ancionato)';r.escolaEm=new Date().toISOString();
+    demoSave(d);return {ok:true,lit:r};
+  }
+  if(action==='chaveEscola')return {ok:true,chave:'demonstracao'};
   if(action==='litSalvar'||action==='litMusica'||action==='litExcluir'){
     d.liturgias=d.liturgias||[];const id=dados.tipo+'_'+dados.data;let r=d.liturgias.find(x=>x.id===id);
     if(action==='litExcluir'){d.liturgias=d.liturgias.filter(x=>x.id!==id);demoSave(d);return {ok:true};}
@@ -1784,6 +1793,8 @@ function proximaDataLit(tipo){
 const litKey = (tipo,data) => tipo+'|'+data;
 /* Linha só do ancionato: a página da música não vê o que está escrito nela. */
 const ehAncionato = l => {const r=String(l.r||'').trim();return !!r&&r.split('/').every(p=>/ancionato/i.test(p));};
+/* Linha em que a Escola Sabatina é responsável: a página da Escola Sabatina só vê e preenche estas. */
+const ehEscola = l => String(l.r||'').split('/').some(p=>/escola\s+sabatina/i.test(p));
 function litChaves(L){const c={};L.secoes.forEach(s=>s.l.forEach(l=>{const b=l.m+'|'+l.h;c[b]=(c[b]||0)+1;l.k=c[b]>1?b+'#'+c[b]:b;}));}
 function litDadosServidor(L){const c=litCompacta(L);c.turno=L.turno.slice();return c;}
 /* Monta a liturgia de um culto: o que está salvo (ancionato + música) ou, se ainda não há nada, o modelo da igreja. */
@@ -1800,11 +1811,13 @@ function litMontar(tipo,data){
   litChaves(L);
   const mu=(rec&&rec.musica)||{v:'',m:{}};
   L.vocal=mu.v||'';
-  L.secoes.forEach(s=>s.l.forEach(l=>{l.x=(mu.m&&mu.m[l.k])||'';}));
+  const es=(rec&&rec.escola)||{m:{}};
+  L.secoes.forEach(s=>s.l.forEach(l=>{l.x=(mu.m&&mu.m[l.k])||'';l.e=(es.m&&es.m[l.k])||'';}));
   return L;
 }
 /* Para PDF e WhatsApp: o que o ancionato e a música escreveram no mesmo momento aparece junto. */
-function litSaida(L){const c=copia(L);c.secoes.forEach(s=>s.l.forEach(l=>{l.d=[l.d,l.x].filter(Boolean).join(' - ');}));return c;}
+function litSaida(L){const c=copia(L);c.secoes.forEach(s=>s.l.forEach(l=>{l.d=[l.d,l.x,l.e].filter(Boolean).join(' - ');}));return c;}
+const urlEscola = chave => new URL('escolasabatina.html',location.href).href.split('#')[0].split('?')[0]+'#k='+chave+'&a='+encodeURIComponent(CONFIG.API_URL||'');
 const urlMusica = chave => new URL('musica.html',location.href).href.split('#')[0].split('?')[0]+'#k='+chave+'&a='+encodeURIComponent(CONFIG.API_URL||'');   // o link leva o endereço do servidor, assim a música sempre fala com o mesmo Apps Script do painel
 function fmtQuando(iso){const d=new Date(iso);return isNaN(d)?'':pad(d.getDate())+'/'+pad(d.getMonth()+1)+' às '+pad(d.getHours())+':'+pad(d.getMinutes());}
 let litAtual=null;
@@ -1966,13 +1979,14 @@ function abrirLiturgias(tipo,dataIni){
   tipo=LIT_TIPOS[tipo]?tipo:'sabado';
   let data=dataIni||proximaDataLit(tipo),L=null,estrutura=false,uid=0,mostrarLink=false,linkTxt='';
   const ro=!pode();
-  let tA=null,tM=null,pendM={},pendV=null,sujoA=false,primeiraSync=true;
-  const camposMus=new Map();let campoVocal=null;
+  let tA=null,tM=null,tE=null,pendM={},pendE={},pendV=null,sujoA=false,primeiraSync=true;
+  let mostrarLinkEs=false,linkEsTxt='';
+  const camposMus=new Map(),camposEsc=new Map();let campoVocal=null;
   const corpo=h('div',{class:'form'});
   const stEl=h('span',{class:'muted',role:'status','aria-live':'polite'});
   const infoMus=h('p',{class:'muted'});
   const setSt=t=>{stEl.textContent=t;};
-  function carrega(){L=litMontar(tipo,data);pendM={};pendV=null;sujoA=false;}
+  function carrega(){L=litMontar(tipo,data);pendM={};pendE={};pendV=null;sujoA=false;}
   function recAtual(){const k=litKey(tipo,data);return S.lits[k]||(S.lits[k]={id:tipo+'_'+data,tipo:tipo,data:data,dados:null,musica:{v:'',m:{}}});}
   async function enviar(action,dados){
     try{const r=await api(action,dados);setSt(r&&r.offline?'Sem internet: salvo no aparelho, será enviado depois':'Salvo');}
@@ -1993,14 +2007,24 @@ function abrirLiturgias(tipo,dataIni){
     Object.keys(m).forEach(k=>{if(m[k])rec.musica.m[k]=m[k];else delete rec.musica.m[k];});
     cacheLocal();setSt('Salvando…');enviar('litMusica',{tipo:tipo,data:data,delta:delta});
   }
-  const flush=()=>{enviaAnc();enviaMus();};
+  function enviaEsc(){
+    clearTimeout(tE);tE=null;if(ro)return;
+    const m=pendE;if(!Object.keys(m).length)return;
+    pendE={};
+    const rec=recAtual();rec.escola=rec.escola||{v:'',m:{}};rec.escola.m=rec.escola.m||{};
+    Object.keys(m).forEach(k=>{if(m[k])rec.escola.m[k]=m[k];else delete rec.escola.m[k];});
+    cacheLocal();setSt('Salvando…');enviar('litEscola',{tipo:tipo,data:data,delta:{m:m}});
+  }
+  const flush=()=>{enviaAnc();enviaMus();enviaEsc();};
   const guarda=()=>{if(ro)return;sujoA=true;setSt('Salvando…');clearTimeout(tA);tA=setTimeout(enviaAnc,800);};
   const guardaMus=(k,v)=>{if(ro)return;pendM[k]=v;setSt('Salvando…');clearTimeout(tM);tM=setTimeout(enviaMus,800);};
+  const guardaEsc=(k,v)=>{if(ro)return;pendE[k]=v;setSt('Salvando…');clearTimeout(tE);tE=setTimeout(enviaEsc,800);};
   const guardaVocal=v=>{if(ro)return;pendV=v;setSt('Salvando…');clearTimeout(tM);tM=setTimeout(enviaMus,800);};
 
   function textoInfoMus(){
     const rec=S.lits[litKey(tipo,data)];
-    infoMus.textContent=rec&&rec.musicaEm?'Música: último preenchimento por '+(rec.musicaPor||'—')+', em '+fmtQuando(rec.musicaEm)+'.':'A música ainda não preencheu este culto.';
+    infoMus.textContent=(rec&&rec.musicaEm?'Música: último preenchimento por '+(rec.musicaPor||'—')+', em '+fmtQuando(rec.musicaEm)+'.':'A música ainda não preencheu este culto.')
+      +(tipo==='sabado'?' '+(rec&&rec.escolaEm?'Escola Sabatina: último preenchimento por '+(rec.escolaPor||'—')+', em '+fmtQuando(rec.escolaEm)+'.':'A Escola Sabatina ainda não preencheu este culto.'):'');
   }
   /* Traz o que a música preencheu sem apagar o que está sendo digitado agora. */
   function aplicaMusica(){
@@ -2010,15 +2034,20 @@ function abrirLiturgias(tipo,dataIni){
       const el=camposMus.get(l.k);if(!el||(l.k in pendM)||document.activeElement===el)return;
       const v=(mu.m&&mu.m[l.k])||'';l.x=v;if(el.value!==v)el.value=v;
     }));
+    const es=(rec&&rec.escola)||{m:{}};
+    L.secoes.forEach(s=>s.l.forEach(l=>{
+      const el=camposEsc.get(l.k);if(!el||(l.k in pendE)||document.activeElement===el)return;
+      const v=(es.m&&es.m[l.k])||'';l.e=v;if(el.value!==v)el.value=v;
+    }));
     textoInfoMus();
   }
   async function sincroniza(){
-    if(lerFila().length||sujoA||tA||tM)return;
+    if(lerFila().length||sujoA||tA||tM||tE)return;
     try{
       const r=await api('litListar');
       S.lits={};(r.liturgias||[]).forEach(x=>{if(x&&x.tipo&&x.data)S.lits[litKey(x.tipo,x.data)]=x;});
       cacheLocal();
-      if(sujoA||tA||tM)return;
+      if(sujoA||tA||tM||tE)return;
       if(primeiraSync){primeiraSync=false;carrega();desenha();}else aplicaMusica();
     }catch(_){}
   }
@@ -2054,6 +2083,32 @@ function abrirLiturgias(tipo,dataIni){
         h('a',{class:'btn sm',target:'_blank',rel:'noopener',href:linkTxt?'https://wa.me/?text='+encodeURIComponent('Liturgia da música (preencha direto aqui): '+linkTxt):null},'Enviar por WhatsApp'),
         novo));
   }
+  function painelLinkEs(){
+    if(!mostrarLinkEs)return null;
+    const inp=h('input',{type:'text',readonly:true,value:linkEsTxt||'Gerando…','aria-label':'Link da página da Escola Sabatina',onfocus:e=>e.target.select()});
+    const novo=h('button',{class:'btn sm',type:'button'},'Gerar novo link');
+    novo.addEventListener('click',async()=>{
+      if(!confirm('Gerar um novo link? O link atual deixa de funcionar e você precisará enviar o novo para a Escola Sabatina.'))return;
+      try{const r=await api('chaveEscola',{renovar:true});linkEsTxt=urlEscola(r.chave);toast('Novo link gerado. O antigo não funciona mais.');desenha();}
+      catch(e){toast('Não foi possível gerar: '+e.message);}
+    });
+    return h('div',{class:'row2'},
+      h('b',null,'Link da Escola Sabatina (sem senha)'),
+      h('p',{class:'muted'},'Quem tem este link vê só a estrutura da liturgia de sábado, sem nada do ancionato nem da música, e pode preencher os momentos da Escola Sabatina. Envie apenas aos líderes. Se o link se espalhar, gere um novo.'),
+      inp,
+      h('div',{class:'acoes'},
+        h('button',{class:'btn sm primary',type:'button',disabled:!linkEsTxt,onclick:()=>copiarTexto(linkEsTxt,null)},icone('copy',14),'Copiar link'),
+        h('a',{class:'btn sm',target:'_blank',rel:'noopener',href:linkEsTxt?'https://wa.me/?text='+encodeURIComponent('Liturgia da Escola Sabatina (preencha direto aqui): '+linkEsTxt):null},'Enviar por WhatsApp'),
+        novo));
+  }
+  async function alternaLinkEs(){
+    mostrarLinkEs=!mostrarLinkEs;
+    if(mostrarLinkEs&&!linkEsTxt){
+      try{const r=await api('chaveEscola');linkEsTxt=urlEscola(r.chave);}
+      catch(e){toast('Não foi possível obter o link: '+e.message);mostrarLinkEs=false;}
+    }
+    desenha();
+  }
   async function alternaLink(){
     mostrarLink=!mostrarLink;
     if(mostrarLink&&!linkTxt){
@@ -2077,20 +2132,25 @@ function abrirLiturgias(tipo,dataIni){
             oninput:e=>{l.x=e.target.value;guardaMus(l.k,e.target.value);}});
           camposMus.set(l.k,cm);det.push(cm);
         }
+        if(ehEscola(l)){
+          const ce=h('input',{type:'text',maxlength:'160',class:'mus',readonly:ro,placeholder:'✎ Escola Sabatina preenche','aria-label':l.m+' ('+l.h+'): preenchido pela Escola Sabatina',value:l.e||'',
+            oninput:e=>{l.e=e.target.value;guardaEsc(l.k,e.target.value);}});
+          camposEsc.set(l.k,ce);det.push(ce);
+        }
         return {m:l.m,h:l.h,r:l.r,a:l.a,det:det};})})),
       obs:(L.obs&&L.obs.trim())?h('textarea',{rows:'2','aria-label':'Observações',maxlength:'400',readonly:ro,value:L.obs||'',oninput:e=>{L.obs=e.target.value;guarda();}}):null});
   }
   function desenha(){
     const rolagem=$('#dlg-b')?$('#dlg-b').scrollTop:0;
-    camposMus.clear();campoVocal=null;
+    camposMus.clear();camposEsc.clear();campoVocal=null;
     corpo.replaceChildren(datalist('dl-lit',nomesPessoas()));
     corpo.append(h('div',{class:'tabs',role:'tablist'},Object.keys(LIT_TIPOS).map(k=>h('button',{type:'button',role:'tab','aria-selected':tipo===k?'true':'false',
       onclick:()=>{flush();tipo=k;data=proximaDataLit(k);estrutura=false;carrega();desenha();sincroniza();}},LIT_TIPOS[k]))));
     /* próximos cultos: ✓ = liturgia já organizada pelo ancionato, ♪ = a música já preencheu */
     corpo.append(h('div',{class:'acoes chips','aria-label':'Próximos cultos'},datasChips().map(dt=>{
-      const r=S.lits[litKey(tipo,dt)],marc=(r&&r.dados?' ✓':'')+(r&&r.musicaEm?' ♪':'');
+      const r=S.lits[litKey(tipo,dt)],marc=(r&&r.dados?' ✓':'')+(r&&r.musicaEm?' ♪':'')+(r&&r.escolaEm?' ✎':'');
       return h('button',{class:'btn sm'+(dt===data?' primary':''),type:'button','aria-pressed':dt===data?'true':'false',
-        title:(r&&r.dados?'Liturgia organizada. ':'')+(r&&r.musicaEm?'A música já preencheu.':''),
+        title:(r&&r.dados?'Liturgia organizada. ':'')+(r&&r.musicaEm?'A música já preencheu. ':'')+(r&&r.escolaEm?'A Escola Sabatina já preencheu.':''),
         onclick:()=>{if(dt===data)return;flush();data=dt;estrutura=false;carrega();desenha();sincroniza();}},fmtCurto(dt)+marc);
     })));
     const inData=h('input',{type:'date',id:'lt-data',value:data,onchange:e=>{if(e.target.value){flush();data=e.target.value;carrega();desenha();sincroniza();}}});
@@ -2185,8 +2245,10 @@ function abrirLiturgias(tipo,dataIni){
       }},'Limpar preenchimento'),
       h('button',{class:'btn so-editor',type:'button',onclick:()=>{estrutura=!estrutura;desenha();}},estrutura?'Concluir edição da estrutura':'Editar estrutura (momentos, horários, responsáveis)'),
       h('button',{class:'btn so-editor',type:'button',onclick:alternaLink},icone('users',15),'Link da música'),
+      h('button',{class:'btn so-editor',type:'button',onclick:alternaLinkEs},icone('users',15),'Link da Escola Sabatina'),
       estrutura?btnSv:null,estrutura?btnRs:null));
     const pl=painelLink();if(pl)corpo.append(pl);
+    const ple=painelLinkEs();if(ple)corpo.append(ple);
     const b=$('#dlg-b');if(b)b.scrollTop=rolagem;
   }
   carrega();desenha();
