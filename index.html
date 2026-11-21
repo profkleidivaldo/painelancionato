@@ -2110,9 +2110,18 @@ function abrirLiturgias(tipo,dataIni){
       corpo.append(h('p',{class:'muted'},'Atenção: se você mudar o nome ou o horário de um momento, o que a música já preencheu nele deixa de aparecer.'));
       corpo.append(h('div',{class:'g2'},campo('Título do impresso',L,'titulo'),campo('Horário do culto',L,'hora')));
     }
-    L.secoes.forEach(s=>{
+    L.secoes.forEach((s,si)=>{
       corpo.append(h('p',{class:'sec-t'},s.t||'Programação'));
-      if(estrutura)corpo.append(h('div',{class:'g2'},campo('Título da seção (opcional)',s,'t'),campo('Cabeçalho da coluna',s,'col')));
+      if(estrutura){
+        corpo.append(h('div',{class:'g2'},campo('Título da seção (opcional)',s,'t'),campo('Cabeçalho da coluna',s,'col')));
+        const chkQ=h('input',{type:'checkbox',checked:!!s.q,disabled:si===0,onchange:e=>{s.q=e.target.checked;guarda();}});
+        corpo.append(h('div',{class:'acoes'},
+          h('label',{class:'check'},chkQ,'Começa em nova página no impresso'),
+          h('button',{class:'btn sm',type:'button',onclick:()=>{
+            if(L.secoes.length<=1){toast('A liturgia precisa ter pelo menos uma seção.');return;}
+            if(s.l.length&&!confirm('Remover esta seção e as '+s.l.length+' linha(s) dela?'))return;
+            L.secoes.splice(si,1);if(L.secoes[0])L.secoes[0].q=false;guarda();desenha();}},icone('x',14),'Remover seção')));
+      }
       s.l.forEach((l,i)=>{
         if(!estrutura){
           const musica=!ehAncionato(l);
@@ -2135,11 +2144,15 @@ function abrirLiturgias(tipo,dataIni){
             h('div',{class:'top'},h('b',null,''),
               h('button',{class:'ibtn',type:'button','aria-label':'Subir '+l.m,disabled:i===0,onclick:()=>mover(s.l,i,-1)},icone('up',16)),
               h('button',{class:'ibtn',type:'button','aria-label':'Descer '+l.m,disabled:i===s.l.length-1,onclick:()=>mover(s.l,i,1)},icone('down',16)),
+              h('button',{class:'ibtn',type:'button','aria-label':'Inserir linha abaixo de '+l.m,title:'Inserir linha abaixo',onclick:()=>{s.l.splice(i+1,0,Object.assign(lr('','','',''),{k:'novo'+(++uid),x:''}));guarda();desenha();}},icone('plus',16)),
               h('button',{class:'ibtn',type:'button','aria-label':'Remover '+l.m,onclick:()=>{s.l.splice(i,1);guarda();desenha();}},icone('x',16)))));
         }
       });
-      if(estrutura)corpo.append(h('div',null,h('button',{class:'btn sm',type:'button',onclick:()=>{s.l.push(Object.assign(lr('','','',''),{k:'novo'+(++uid),x:''}));guarda();desenha();}},icone('plus',14),'Adicionar linha')));
+      if(estrutura)corpo.append(h('div',null,h('button',{class:'btn sm',type:'button',onclick:()=>{s.l.push(Object.assign(lr('','','',''),{k:'novo'+(++uid),x:''}));guarda();desenha();}},icone('plus',14),'Adicionar linha no fim')));
     });
+    if(estrutura)corpo.append(h('div',null,h('button',{class:'btn sm',type:'button',onclick:()=>{
+      if(L.secoes.length>=6){toast('No máximo 6 seções por liturgia.');return;}
+      L.secoes.push({t:'Nova seção',col:'Detalhes',q:false,l:[Object.assign(lr('','','',''),{k:'novo'+(++uid),x:''})]});guarda();desenha();}},icone('plus',14),'Adicionar seção')));
     if(estrutura||(L.obs&&L.obs.trim())){
       const id='lt-obs';
       corpo.append(h('p',{class:'sec-t'},'Observações'),h('textarea',{id:id,rows:'3','aria-label':'Observações',maxlength:'400',readonly:ro,value:L.obs||'',oninput:e=>{L.obs=e.target.value;guarda();}}));
@@ -2171,7 +2184,7 @@ function abrirLiturgias(tipo,dataIni){
         try{await api('litExcluir',{tipo:tipo,data:data});delete S.lits[litKey(tipo,data)];cacheLocal();carrega();desenha();toast('Preenchimento limpo');}
         catch(e){toast('Não foi possível limpar: '+e.message);}
       }},'Limpar preenchimento'),
-      h('button',{class:'btn so-editor',type:'button',onclick:()=>{estrutura=!estrutura;desenha();}},estrutura?'Concluir edição da estrutura':'Editar estrutura'),
+      h('button',{class:'btn so-editor',type:'button',onclick:()=>{estrutura=!estrutura;desenha();}},estrutura?'Concluir edição da estrutura':'Editar estrutura (momentos, horários, responsáveis)'),
       h('button',{class:'btn so-editor',type:'button',onclick:alternaLink},icone('users',15),'Link da música'),
       estrutura?btnSv:null,estrutura?btnRs:null));
     const pl=painelLink();if(pl)corpo.append(pl);
