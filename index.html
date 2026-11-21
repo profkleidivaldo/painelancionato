@@ -1063,8 +1063,7 @@ function cardDeptos(){
   const tarefas=h('div',{class:'lst'});
   abertas.slice(0,6).forEach(t=>{
     const late=t.prazo&&t.prazo<hojeIso();
-    tarefas.append(h('label',{class:'tk'},
-      h('input',{type:'checkbox',disabled:!pode(),'aria-label':'Concluir: '+t.titulo,onchange:e=>salvar('tarefas',[Object.assign({},t,{feito:e.target.checked})])}),
+    tarefas.append(h('div',{class:'tk'},
       t.depto&&h('span',{class:'dp',style:'--c:'+corDepto(t.depto),title:t.depto}),
       h('span',{class:'t'},t.titulo,(t.resp||t.prazo)&&h('small',{class:late?'late':''},[t.resp,t.prazo&&('até '+fmtBR(t.prazo))].filter(Boolean).join(' · ')))));
   });
@@ -1356,8 +1355,8 @@ function abrirTarefas(){
     todas.forEach(t=>{
       const late=!t.feito&&t.prazo&&t.prazo<hojeIso();
       lista.append(h('div',{class:'row2'},h('div',{class:'top'},
-        h('input',{type:'checkbox',checked:t.feito,disabled:!pode(),'aria-label':'Concluída: '+t.titulo,style:'width:18px;height:18px',onchange:e=>salvar('tarefas',[Object.assign({},t,{feito:e.target.checked})])}),
-        h('b',{style:t.feito?'text-decoration:line-through;color:var(--muted);font-weight:500':''},t.titulo),delBtn(t.id)),
+        h('b',{style:t.feito?'text-decoration:line-through;color:var(--muted);font-weight:500':''},t.titulo),
+        h('span',{class:'tag'+(t.feito?' ok':' pend')},t.feito?'Concluída':'Em aberto'),delBtn(t.id)),
         (t.resp||t.prazo||t.depto)?h('span',{class:'muted'+(late?' late':'')},[t.resp,t.prazo&&('prazo '+fmtBR(t.prazo)),t.depto].filter(Boolean).join(' · ')):null));
     });
     if(!todas.length)lista.append(h('p',{class:'vazio'},'Nenhuma tarefa ainda.'));
