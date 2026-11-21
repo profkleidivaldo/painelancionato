@@ -1791,8 +1791,8 @@ function proximaDataLit(tipo){
 }
 /* Liturgias salvas no servidor: cada culto (tipo + data) tem a parte do ancionato ("dados") e a parte da música ("musica"). */
 const litKey = (tipo,data) => tipo+'|'+data;
-/* Linha só do ancionato: a página da música não vê o que está escrito nela. */
-const ehAncionato = l => {const r=String(l.r||'').trim();return !!r&&r.split('/').every(p=>/ancionato/i.test(p));};
+/* Linha em que a Música é responsável (ex.: "M. Música" ou "M. Diaconato / M. Música"): só estas têm o campo que a música preenche. */
+const ehMusica = l => String(l.r||'').split('/').some(p=>/m[úu]sica/i.test(p));
 /* Linha em que a Escola Sabatina é responsável: a página da Escola Sabatina só vê e preenche estas. */
 const ehEscola = l => String(l.r||'').split('/').some(p=>/escola\s+sabatina/i.test(p));
 function litChaves(L){const c={};L.secoes.forEach(s=>s.l.forEach(l=>{const b=l.m+'|'+l.h;c[b]=(c[b]||0)+1;l.k=c[b]>1?b+'#'+c[b]:b;}));}
@@ -2127,7 +2127,7 @@ function abrirLiturgias(tipo,dataIni){
     return folha({tema:LIT_TEMAS[LIT_MODELOS[tipo].tema],titulo:L.titulo,hora:L.hora,logo:LOGO_IGREJA,turno:turno,data:dt,vocal:campoVocal,
       secoes:L.secoes.map(s=>({t:s.t,q:s.q,col:s.col,linhas:s.l.map(l=>{
         const det=[h('input',{type:'text',maxlength:'160',list:'dl-lit',readonly:ro,placeholder:'','aria-label':l.m+' ('+l.h+'): '+(s.col||'Detalhes'),value:l.d,oninput:e=>{l.d=e.target.value;guarda();}})];
-        if(!ehAncionato(l)){
+        if(ehMusica(l)){
           const cm=h('input',{type:'text',maxlength:'160',class:'mus',readonly:ro,placeholder:'♪ música preenche','aria-label':l.m+' ('+l.h+'): preenchido pela música',value:l.x||'',
             oninput:e=>{l.x=e.target.value;guardaMus(l.k,e.target.value);}});
           camposMus.set(l.k,cm);det.push(cm);
@@ -2183,7 +2183,7 @@ function abrirLiturgias(tipo,dataIni){
       }
       s.l.forEach((l,i)=>{
         if(!estrutura){
-          const musica=!ehAncionato(l);
+          const musica=ehMusica(l);
           let campoMus=null;
           if(musica){
             campoMus=h('input',{type:'text',maxlength:'160',class:'mus',readonly:ro,placeholder:'Música preenche aqui','aria-label':l.m+' ('+l.h+'): preenchido pela música',value:l.x||'',
