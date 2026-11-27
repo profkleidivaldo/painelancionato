@@ -1796,7 +1796,8 @@ const ehMusica = l => String(l.r||'').split('/').some(p=>/m[úu]sica/i.test(p));
 /* Linha em que a Escola Sabatina é responsável: a página da Escola Sabatina só vê e preenche estas. */
 const ehEscola = l => String(l.r||'').split('/').some(p=>/escola\s+sabatina/i.test(p));
 function litChaves(L){const c={};L.secoes.forEach(s=>s.l.forEach(l=>{const b=l.m+'|'+l.h;c[b]=(c[b]||0)+1;l.k=c[b]>1?b+'#'+c[b]:b;}));}
-function litDadosServidor(L){const c=litCompacta(L);c.turno=L.turno.slice();return c;}
+function litDadosServidor(L){const c=litCompacta(L);c.turno=L.turno.slice();c.pre=L.preAuto||'';return c;}
+const LIT_LINHA_PREG = /^(serm[aã]o|ora[cç][aã]o final)/i;
 /* Monta a liturgia de um culto: o que está salvo (ancionato + música) ou, se ainda não há nada, o modelo da igreja. */
 function litMontar(tipo,data){
   const rec=S.lits[litKey(tipo,data)];
@@ -1806,6 +1807,17 @@ function litMontar(tipo,data){
     L.titulo=d.titulo||L.titulo;L.hora=d.hora||L.hora;L.obs=d.obs||'';
     L.secoes=d.secoes.map(s=>({t:s.t||'',col:s.col||'Detalhes',q:!!s.q,l:(s.l||[]).map(a=>({m:a[0]||'',h:a[1]||'',d:a[2]||'',r:a[3]||'',a:a[4]||''}))}));
     L.turno=['','','',''].map((_,i)=>(d.turno&&d.turno[i])||'');
+    /* Pregador da agenda: se mudou no calendário, acompanha nas linhas do Sermão/oração final que ainda tinham o pregador antigo (ou estavam vazias). Edição manual com outro nome é preservada. */
+    const atual=(pregadorDo(data)||{}).pessoa||'',antigo=d.pre;
+    const conhecidos=new Set(S.eventos.filter(e=>e.tipo==='pregacao'&&e.pessoa).map(e=>e.pessoa));
+    L.preAuto=atual;
+    if(tipo!=='kids'&&atual!==(antigo||'')){
+      L.secoes.forEach(s=>s.l.forEach(l=>{
+        if(!LIT_LINHA_PREG.test(l.m))return;
+        const v=(l.d||'').trim();
+        if(!v||v===antigo||(antigo===undefined&&conhecidos.has(v))){l.d=atual;L.preMudou=true;}
+      }));
+    }
   }else L=novaLiturgia(tipo,data);
   L.proprio=litModelo(tipo).proprio;
   litChaves(L);
@@ -1824,7 +1836,7 @@ let litAtual=null;
 function novaLiturgia(tipo,data){
   const L=litModelo(tipo),aw=anciaoDaSemana(data),pre=pregadorDo(data);
   L.turno=['','','',''];if(aw)L.turno[0]=aw;
-  L.vocal='';
+  L.vocal='';L.preAuto=(pre&&pre.pessoa)||'';
   /* O pregador da agenda entra sozinho no Sermão e na oração final (menos na Quarta Kids). */
   if(pre&&pre.pessoa&&tipo!=='kids')L.secoes.forEach(s=>s.l.forEach(l=>{if(!l.d&&/^(serm[aã]o|ora[cç][aã]o final)/i.test(l.m))l.d=pre.pessoa;}));
   return L;
@@ -1986,7 +1998,7 @@ function abrirLiturgias(tipo,dataIni){
   const stEl=h('span',{class:'muted',role:'status','aria-live':'polite'});
   const infoMus=h('p',{class:'muted'});
   const setSt=t=>{stEl.textContent=t;};
-  function carrega(){L=litMontar(tipo,data);pendM={};pendE={};pendV=null;sujoA=false;}
+  function carrega(){L=litMontar(tipo,data);pendM={};pendE={};pendV=null;sujoA=false;if(L.preMudou&&!ro){delete L.preMudou;sujoA=true;enviaAnc();}}
   function recAtual(){const k=litKey(tipo,data);return S.lits[k]||(S.lits[k]={id:tipo+'_'+data,tipo:tipo,data:data,dados:null,musica:{v:'',m:{}}});}
   async function enviar(action,dados){
     try{const r=await api(action,dados);setSt(r&&r.offline?'Sem internet: salvo no aparelho, será enviado depois':'Salvo');}

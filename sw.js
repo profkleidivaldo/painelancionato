@@ -1,7 +1,7 @@
 /* Service worker do Painel do Ancião: deixa o app abrir e funcionar sem internet.
    Os dados em si ficam guardados no aparelho pelo próprio app (index.html).
    Ao publicar uma nova versão do index.html, aumente o número em VERSAO. */
-const VERSAO = 'painel-v4';
+const VERSAO = 'painel-v5';
 const LOCAIS = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png', 'apple-touch-icon.png'];
 const EXTERNOS = [
   'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
